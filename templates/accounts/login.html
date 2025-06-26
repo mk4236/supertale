@@ -1,0 +1,35 @@
+{% extends "auth_base.html" %}
+{% load django_bootstrap5 %}
+
+{% block title %}로그인{% endblock %}
+
+{% block content %}
+<form method="post">
+<div class="row justify-content-center mt-5">
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-header"><h4 class="text-center font-weight-light my-4">Login</h4></div>
+      <div class="card-body">
+          {% csrf_token %}
+          {% bootstrap_field form.username wrapper="div" wrapper_class="mb-3" label="아이디" %}
+          {% bootstrap_field form.password wrapper="div" wrapper_class="mb-3" label="패스워드" %}
+      </div>
+      <div class="card-footer text-center">
+            <div class="d-flex align-items-center justify-content-between my-2">
+              <a href="{% url 'signup' %}" class="btn btn-secondary">회원가입</a>
+              <button type="submit" class="btn btn-primary">로그인</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </form>
+
+
+
+
+                        
+                    
+
+{% endblock %}

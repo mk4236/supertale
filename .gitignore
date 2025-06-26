@@ -1,0 +1,78 @@
+Python
+
+pycache/
+*.py[cod]
+*$py.class
+
+Virtual environments
+
+venv/
+.env
+.env.*
+
+Installer logs
+
+pip-log.txt
+pip-delete-this-directory.txt
+
+Django stuff:
+
+*.log
+*.pot
+*.pyc
+*.swp
+db.sqlite3
+
+Static files collected by collectstatic
+
+staticfiles/
+
+Media uploads
+
+media/
+
+IDEs and editors
+
+.vscode/
+.idea/
+*.suo
+.ntvs
+*.njsproj
+*.sln
+
+OS files
+
+.DS_Store
+Thumbs.db
+
+Distribution / packaging
+
+build/
+dist/
+*.egg-info/
+
+Node.js dependencies
+
+node_modules/
+
+PyCharm
+
+*.iml
+
+Coverage
+
+htmlcov/
+.coverage
+.coverage.*
+
+Profiles
+
+.profile
+
+Backup files
+
+*~
+
+Logs
+
+*.log
