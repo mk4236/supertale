@@ -170,6 +170,10 @@ def tts_proxy(request):
                 line.model = model
                 line.text = text
                 line.save()
+                # Save audio content to the line’s audio_file field
+                timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
+                filename = f"{timestamp}_{line_id}.wav"
+                line.audio_file.save(filename, ContentFile(response.content), save=True)
             except SuperToneLine.DoesNotExist:
                 logger.warning(f"SuperToneLine with id {line_id} not found")
         # Return the audio stream synchronously for now

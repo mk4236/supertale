@@ -72,6 +72,7 @@ class SuperToneLine(models.Model):
         default=ModelType.SONA_SPEECH_1,
     )
     order = models.PositiveIntegerField()
+    audio_file = models.FileField(upload_to="supertone/audio/", null=True, blank=True)
 
     def __str__(self):
         return f"{self.order}: {self.text}"
