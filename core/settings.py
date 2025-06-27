@@ -147,3 +147,20 @@ LOGOUT_REDIRECT_URL = "/"
 BOOTSTRAP5 = {
     "theme_url": "https://cdn.jsdelivr.net/npm/bootswatch@5.4.0/dist/cosmo/bootstrap.min.css"
 }
+
+
+SUPERTONE_API_KEY = os.getenv("SUPERTONE_API_KEY")
+SUPERTONE_VOICE_ID = os.getenv("SUPERTONE_VOICE_ID")
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+    },
+}

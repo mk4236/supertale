@@ -1,0 +1,27 @@
+
+
+{% extends 'base.html' %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+<div class="container my-4">
+  <div class="card">
+    <div class="card-header">
+      <h2>{{ supertone.title }}</h2>
+      <small class="text-muted">
+        작성: {{ supertone.created_by.first_name }}
+        | {{ supertone.created_at|date:"Y-m-d H:i" }}
+        / 수정: {{ supertone.updated_by.first_name }}
+        | {{ supertone.updated_at|date:"Y-m-d H:i" }} 
+      </small>
+    </div>
+    <div class="card-body">
+      {{ supertone.contents|linebreaks }}
+    </div>
+    <div class="card-footer justify-content-between">
+      <a href="{% url 'supertone_list' %}" class="btn btn-secondary">목록으로</a>
+      <a href="{% url 'supertone_list' %}" class="btn btn-secondary">목록으로</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
