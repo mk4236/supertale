@@ -5,6 +5,7 @@ import re
 import httpx
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib import messages
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import render
 from django.urls import reverse_lazy, reverse
@@ -61,29 +62,19 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
 
 class SuperToneUpdateView(LoginRequiredMixin, UpdateView):
     model = SuperTone
-    fields = ["title", "contents"]
+    fields = ["title"]
     template_name = "supertone/update.html"
-    success_url = reverse_lazy("supertone_list")
+    # success_url = reverse_lazy("supertone_list")
 
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
         response = super().form_valid(form)
-        # Update existing lines based on submitted inputs
-        # Expect fields: step_<order>, voice_id_<order>, style_<order>, language_<order>, model_<order>
-        for idx, line in enumerate(self.object.lines.order_by("order"), start=1):
-            text = self.request.POST.get(f"step_{idx}", "").strip()
-            if not text:
-                # delete if empty
-                line.delete()
-                continue
-            line.text = text
-            line.voice_id = self.request.POST.get(f"voice_id_{idx}", line.voice_id)
-            line.style = self.request.POST.get(f"style_{idx}", line.style)
-            line.language = self.request.POST.get(f"language_{idx}", line.language)
-            line.model = self.request.POST.get(f"model_{idx}", line.model)
-            line.order = idx
-            line.save()
+        messages.success(self.request, "제목이 성공적으로 수정되었습니다.")
         return response
+
+    def get_success_url(self):
+        # After updating, reload the same update page instead of redirecting to list
+        return reverse("supertone_update", kwargs={"pk": self.object.pk})
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -141,6 +132,7 @@ def tts_proxy(request):
     }
     url = f"https://supertoneapi.com/v1/text-to-speech/{voice_id}"
     try:
+        file_saved = False
         logger.debug(f"Sending TTS request to {url} with payload: {payload}")
         response = httpx.post(url, json=payload, headers=headers, timeout=60)
         logger.debug(
@@ -174,6 +166,7 @@ def tts_proxy(request):
                 timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
                 filename = f"{timestamp}_{line_id}.wav"
                 line.audio_file.save(filename, ContentFile(response.content), save=True)
+                file_saved = True
             except SuperToneLine.DoesNotExist:
                 logger.warning(f"SuperToneLine with id {line_id} not found")
         # Return the audio stream synchronously for now
@@ -182,6 +175,8 @@ def tts_proxy(request):
             status=response.status_code,
             content_type=response.headers.get("Content-Type", "audio/wav"),
         )
+        if file_saved:
+            resp["X-File-Saved"] = "true"
         resp["Access-Control-Allow-Origin"] = "*"
         return resp
     except Exception as exc:

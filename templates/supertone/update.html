@@ -3,12 +3,36 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="mb-3">
-    {% if form.instance.pk %}게시글 수정{% else %}게시글 작성{% endif %}
-  </h2>
+  <div id="message-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050; width: auto;">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">컨텐츠 오디오 작성</h2>
+  </div>
   <form method="post">
     {% csrf_token %}
-    {% bootstrap_field form.title wrapper="div" wrapper_class="mb-3" label="제목" %}
+    <div class="d-flex justify-content-between align-items-end mb-3">
+      {% bootstrap_field form.title wrapper="div" wrapper_class="flex-grow-1 me-3" label="제목" attrs="{'class': 'form-control form-control-sm'}" label_class="form-label small" %}
+      <button type="submit" class="btn btn-primary">제목수정</button>
+    </div>
+    <div class="mb-3 d-flex justify-content-between">
+      <a href="{% url 'supertone_list' %}" class="btn btn-secondary">목록으로</a>
+      <div class="d-flex justify-content-between">
+        <button type="button" id="regenerate-all" class="btn btn-outline-secondary me-2">
+          전체 새로만들기
+        </button>
+        <button type="button" id="regenerate-missing" class="btn btn-outline-primary">
+          음성 없는 것만 새로만들기
+        </button>
+      </div>
+    </div>
     <div id="steps-container">
       {% if form.instance.pk %}
         {% for line in form.instance.lines.all %}
@@ -53,13 +77,6 @@
           </div>
         {% endfor %}
       {% endif %}
-    </div>
-    <button type="button" id="generate-button" class="btn btn-primary mb-3" style="display:none;">생성하기</button>
-    <div class="mt-3">
-      <button type="submit" class="btn btn-primary">
-        {% if form.instance.pk %}수정 완료{% else %}등록하기{% endif %}
-      </button>
-      <a href="{% url 'supertone_list' %}" class="btn btn-secondary ms-2">취소</a>
     </div>
   </form>
 <script>
@@ -159,6 +176,20 @@ document.addEventListener('DOMContentLoaded', function() {
         audio.src = URL.createObjectURL(blob);
         const audioContainer = wrapper.querySelector('.audio-container');
         audioContainer.appendChild(audio);
+
+            // Show temporary success alert for bulk generation
+            const lineHeader = wrapper.querySelector('h6').textContent;
+            const msgContainer = document.getElementById('message-container');
+            const successAlert = document.createElement('div');
+            successAlert.className = 'alert alert-success fade show';
+            successAlert.role = 'alert';
+            successAlert.textContent = `${lineHeader} 음성이 생성되었습니다`;
+            msgContainer.appendChild(successAlert);
+            setTimeout(() => {
+              successAlert.classList.remove('show');
+              setTimeout(() => successAlert.remove(), 200);
+            }, 3000);
+
       } catch (err) {
         console.error(err);
         let alertEl = document.querySelector('#tts-error-alert');
@@ -215,6 +246,21 @@ document.addEventListener('DOMContentLoaded', function() {
         audio.className = 'w-100';
         audio.src = URL.createObjectURL(blob);
         audioContainer.appendChild(audio);
+
+            // Show temporary success alert
+            const lineHeader = wrapper.querySelector('h6').textContent;
+            const msgContainer = document.getElementById('message-container');
+            const successAlert = document.createElement('div');
+            successAlert.className = 'alert alert-success fade show';
+            successAlert.role = 'alert';
+            successAlert.textContent = `${lineHeader} 음성이 생성되었습니다`;
+            msgContainer.appendChild(successAlert);
+            // Auto-dismiss after 3 seconds
+            setTimeout(() => {
+              successAlert.classList.remove('show');
+              setTimeout(() => successAlert.remove(), 200);
+            }, 3000);
+
       } catch (err) {
         console.error(err);
         const errorContainer = wrapper.querySelector('.audio-container');
@@ -238,7 +284,44 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
+
+  // Bulk "전체 새로만들기" - regenerate all lines
+  const regenAllBtn = document.getElementById('regenerate-all');
+  if (regenAllBtn) {
+    regenAllBtn.addEventListener('click', function() {
+      document.querySelectorAll('.regenerate').forEach(btn => btn.click());
+    });
+  }
+
+  // Bulk "음성 없는 것만 새로만들기" - regenerate only missing audio
+  const regenMissingBtn = document.getElementById('regenerate-missing');
+  if (regenMissingBtn) {
+    regenMissingBtn.addEventListener('click', function() {
+      document.querySelectorAll('.card[data-line-id]').forEach(wrapper => {
+        const audioEl = wrapper.querySelector('.audio-container audio');
+        // If no src or empty src, trigger regenerate
+        if (!audioEl || !audioEl.src) {
+          const btn = wrapper.querySelector('.regenerate');
+          if (btn) btn.click();
+        }
+      });
+    });
+  }
 });
 </script>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const container = document.getElementById('message-container');
+  if (container) {
+    container.querySelectorAll('.alert').forEach(alert => {
+      setTimeout(() => {
+        alert.classList.remove('show');
+        // after bootstrap fade transition (0.15s), remove from DOM
+        setTimeout(() => alert.remove(), 200);
+      }, 3000);
+    });
+  }
+});
+</script>
 {% endblock %}
