@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+<div class="container mt-4">
+  <h4 class="mb-3">
+    컨텐츠 생성
+  </h4>
+  <form method="post">
+    {% csrf_token %}
+    {% bootstrap_field form.title wrapper="div" wrapper_class="mb-3" label="제목" %}
+    {% bootstrap_field form.contents wrapper="div" wrapper_class="mb-3" label="내용" %}
+    <div class="d-flex justify-content-between mt-3">
+      <a href="{% url 'supertone_list' %}" class="btn btn-secondary">
+        취소
+      </a>
+      <button type="submit" class="btn btn-primary">
+        저장 및 음성생성으로 이동
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

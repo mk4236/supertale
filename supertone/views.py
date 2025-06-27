@@ -1,17 +1,19 @@
+import json
+import logging
+
 import httpx
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import render
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-import logging
-import json
-
 logger = logging.getLogger(__name__)
+
+from supertone.forms import SuperToneCreateForm
 
 from .models import SuperTone
 
@@ -31,21 +33,23 @@ class SuperToneDetailView(LoginRequiredMixin, DetailView):
 
 
 class SuperToneCreateView(LoginRequiredMixin, CreateView):
+    form_class = SuperToneCreateForm
     model = SuperTone
-    fields = ["title", "contents"]
-    template_name = "supertone/form.html"
-    success_url = reverse_lazy("supertone_list")
+    template_name = "supertone/create.html"
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         form.instance.updated_by = self.request.user
         return super().form_valid(form)
 
+    def get_success_url(self):
+        return reverse("supertone_update", kwargs={"pk": self.object.pk})
+
 
 class SuperToneUpdateView(LoginRequiredMixin, UpdateView):
     model = SuperTone
     fields = ["title", "contents"]
-    template_name = "supertone/form.html"
+    template_name = "supertone/update.html"
     success_url = reverse_lazy("supertone_list")
 
     def form_valid(self, form):
