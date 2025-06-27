@@ -76,3 +76,7 @@ Backup files
 Logs
 
 *.log
+
+__pycache__
+
+*.pyc
