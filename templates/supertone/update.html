@@ -23,7 +23,15 @@
       <button type="submit" class="btn btn-primary">제목수정</button>
     </div>
     <div class="mb-3 d-flex justify-content-between">
-      <a href="{% url 'supertone_list' %}" class="btn btn-secondary">목록으로</a>
+      
+      <div>
+        <a href="{% url 'supertone_list' %}" class="btn btn-secondary">목록으로</a>
+        {% comment %} <a href="{% url 'supertone_merge_audio' form.instance.pk %}" 
+          class="btn btn-success">
+          mp3 합쳐서 다운로드
+        </a> {% endcomment %}
+      </div>      
+
       <div class="d-flex justify-content-between">
         <button type="button" id="regenerate-all" class="btn btn-outline-secondary me-2">
           전체 새로만들기
@@ -67,11 +75,9 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary regenerate me-2" data-line-id="{{ line.id }}">
                   <i class="fas fa-sync-alt"></i> 저장 및 음성생성
                 </button>
-                {% if line.audio_file %}
-                  <a href="{{ line.audio_file.url }}" download class="btn btn-sm btn-outline-secondary">
-                    <i class="fas fa-download"></i> 다운로드
-                  </a>
-                {% endif %}
+                <a href="" download class="btn btn-sm btn-outline-secondary download-btn" style="display:none;">
+                  <i class="fas fa-download"></i> 다운로드
+                </a>
               </div>
             </div>
           </div>
@@ -190,6 +196,13 @@ document.addEventListener('DOMContentLoaded', function() {
               setTimeout(() => successAlert.remove(), 200);
             }, 3000);
 
+            // Show download button and set href
+            const downloadBtn = wrapper.querySelector('.download-btn');
+            if (downloadBtn) {
+              downloadBtn.href = URL.createObjectURL(blob);
+              downloadBtn.style.display = 'inline-block';
+            }
+
       } catch (err) {
         console.error(err);
         let alertEl = document.querySelector('#tts-error-alert');
@@ -260,6 +273,13 @@ document.addEventListener('DOMContentLoaded', function() {
               successAlert.classList.remove('show');
               setTimeout(() => successAlert.remove(), 200);
             }, 3000);
+
+            // Show download button and set href
+            const downloadBtn = wrapper.querySelector('.download-btn');
+            if (downloadBtn) {
+              downloadBtn.href = URL.createObjectURL(blob);
+              downloadBtn.style.display = 'inline-block';
+            }
 
       } catch (err) {
         console.error(err);

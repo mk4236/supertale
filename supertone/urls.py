@@ -17,4 +17,9 @@ urlpatterns = [
         name="supertone_update",
     ),
     path("tts/", views.tts_proxy, name="tts_proxy"),
+    path(
+        "supertone/<int:pk>/merge-audio/",
+        views.merge_audio,
+        name="supertone_merge_audio",
+    ),
 ]

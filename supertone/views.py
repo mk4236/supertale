@@ -24,6 +24,46 @@ from supertone.choices import LanguageType, ModelType, VoiceStyleType
 from .models import SuperTone, Voice
 from .models import SuperToneLine
 
+from django.shortcuts import get_object_or_404
+from io import BytesIO
+from pydub import AudioSegment
+
+
+def merge_audio(request, pk):
+    """
+    주어진 SuperTone(pk)에 속한 모든 라인 오디오를 order 순서대로 합쳐서
+    single MP3 파일로 반환합니다.
+    """
+    # 1) 라인들을 순서대로 불러오기
+    lines = SuperToneLine.objects.filter(supertone_id=pk).order_by("order")
+
+    # 2) 첫 번째 오디오로 초기화
+    merged = None
+    for line in lines:
+        if not line.audio_file:
+            continue  # 오디오 없는 라인은 건너뛰기
+        # storage에서 파일 읽기
+        audio_path = line.audio_file.path
+        segment = AudioSegment.from_file(audio_path)
+        if merged is None:
+            merged = segment
+        else:
+            merged += segment  # 이어붙이기
+
+    if merged is None:
+        return HttpResponse("합칠 오디오가 없습니다.", status=404)
+
+    # 3) 메모리 버퍼에 MP3로 내보내기
+    buf = BytesIO()
+    merged.export(buf, format="mp3")
+    buf.seek(0)
+
+    # 4) 응답 생성
+    filename = f"supertone_{pk}_merged.mp3"
+    resp = HttpResponse(buf.read(), content_type="audio/mpeg")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
+
 
 class SuperToneListView(LoginRequiredMixin, ListView):
     model = SuperTone
