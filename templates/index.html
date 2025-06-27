@@ -1,13 +1,15 @@
-{# templates/index.html #}
 {% extends "base.html" %}
 
 {% block title %}Home – SB Admin{% endblock %}
 
 {% block content %}
-<div class="row">
+  <script type="text/javascript">
+    window.location.href = "/supertone/";
+  </script>
+{# <div class="row">
   <div class="col-xl-12">
-    <h1 class="mt-4">Welcome to the Dashboard</h1>
-    <p class="lead">이곳은 SB Admin 기반 Django 애플리케이션의 메인 페이지입니다.</p>
+    <h1 class="mt-4">안녕하세요</h1>
+    <p class="lead"><- SuperTone 메뉴를 눌러 이동해주세요</p>
   </div>
-</div>
+</div> #}
 {% endblock %}

@@ -141,7 +141,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Login
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/supertone/"  # 로그인 후 리디렉션
-LOGOUT_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 # django-bootstrap5 테마 설정
 BOOTSTRAP5 = {
