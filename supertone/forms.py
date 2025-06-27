@@ -10,3 +10,12 @@ class SuperToneCreateForm(forms.ModelForm):
             "title": "제목",
             "contents": "내용",
         }
+
+
+class SuperToneUpdateForm(forms.ModelForm):
+    class Meta:
+        model = SuperTone
+        fields = ["title"]
+        labels = {
+            "title": "제목",
+        }

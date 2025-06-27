@@ -18,7 +18,7 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-from supertone.forms import SuperToneCreateForm
+from supertone.forms import SuperToneCreateForm, SuperToneUpdateForm
 
 from supertone.choices import LanguageType, ModelType, VoiceStyleType
 from .models import SuperTone, Voice
@@ -63,8 +63,9 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
 
 
 class SuperToneUpdateView(LoginRequiredMixin, UpdateView):
+    form_class = SuperToneUpdateForm
     model = SuperTone
-    fields = ["title"]
+    # fields = ["title"]
     template_name = "supertone/update.html"
     # success_url = reverse_lazy("supertone_list")
 
