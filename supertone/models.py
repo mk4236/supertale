@@ -74,5 +74,8 @@ class SuperToneLine(models.Model):
     order = models.PositiveIntegerField()
     audio_file = models.FileField(upload_to="supertone/audio/", null=True, blank=True)
 
+    class Meta:
+        ordering = ["order"]
+
     def __str__(self):
         return f"{self.order}: {self.text}"

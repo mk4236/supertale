@@ -90,7 +90,6 @@ class SuperToneUpdateView(LoginRequiredMixin, UpdateView):
         # 전체 Voice 객체를 템플릿에 넘겨줍니다
         ctx["voice_list"] = Voice.objects.all()
         ctx["voice_styles"] = VoiceStyleType.choices
-        ctx["lines"] = self.object.lines.order_by("order")
         return ctx
 
 
