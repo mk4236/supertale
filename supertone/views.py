@@ -48,12 +48,14 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
         form.instance.created_by = self.request.user
         form.instance.updated_by = self.request.user
         response = super().form_valid(form)
-        # Split contents and save each non-empty segment in order
         content = form.cleaned_data.get("contents", "")
-        segments = [seg.strip() for seg in re.split(r"[.\n]+", content)]
-        for idx, seg in enumerate(segments, start=1):
-            if seg:
-                SuperToneLine.objects.create(supertone=self.object, text=seg, order=idx)
+        # Split on periods, quotes or newlines; trim whitespace on both sides; skip empty segments
+        raw_segments = re.split(r'[.\r\n"]+', content)
+        for idx, seg in enumerate(raw_segments, start=1):
+            text = seg.strip()
+            if not text:
+                continue
+            SuperToneLine.objects.create(supertone=self.object, text=text, order=idx)
         return response
 
     def get_success_url(self):
