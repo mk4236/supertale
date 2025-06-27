@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import SuperTone
+from .models import SuperTone, Voice, SuperToneLine
 
 
 @admin.register(SuperTone)
@@ -12,3 +12,14 @@ class PostAdmin(admin.ModelAdmin):
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(Voice)
+class VoiceAdmin(admin.ModelAdmin):
+    list_display = ("name", "voice_id")
+
+
+@admin.register(SuperToneLine)
+class SuperToneLineAdmin(admin.ModelAdmin):
+    list_display = ("supertone", "order", "text", "voice", "style", "language", "model")
+    ordering = ("supertone", "order")

@@ -9,9 +9,51 @@
   <form method="post">
     {% csrf_token %}
     {% bootstrap_field form.title wrapper="div" wrapper_class="mb-3" label="제목" %}
-    {% bootstrap_field form.contents wrapper="div" wrapper_class="mb-3" label="내용" %}
-    <button type="button" id="split-button" class="btn btn-secondary mb-3">나누기</button>
-    <div id="steps-container"></div>
+    <div id="steps-container">
+      {% if form.instance.pk %}
+        {% for line in form.instance.lines.all %}
+          <div class="card mb-4" data-line-id="{{ line.id }}">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">{{ forloop.counter }}번 TTS</h6>
+                <div class="d-flex">
+                  <select name="voice_id_{{ forloop.counter }}" class="form-select w-auto me-2">
+                    {% for voice in voice_list %}
+                      <option value="{{ voice.voice_id }}" {% if voice.voice_id == line.voice.voice_id %}selected{% endif %}>{{ voice.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <select name="style_{{ forloop.counter }}" class="form-select w-auto">
+                    {% for key, label in voice_styles %}
+                      <option value="{{ key }}" {% if key == line.style %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="mb-3">
+                <textarea name="step_{{ forloop.counter }}" class="form-control" rows="3">{{ line.text }}</textarea>
+              </div>
+              <div class="mb-3 audio-container">
+                {% if line.audio_file %}
+                  <audio controls class="w-100" src="{{ line.audio_file.url }}"></audio>
+                {% else %}
+                  <audio controls class="w-100"></audio>
+                {% endif %}
+              </div>
+              <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-sm btn-outline-secondary regenerate me-2" data-line-id="{{ line.id }}">
+                  <i class="fas fa-sync-alt"></i> 새로만들기
+                </button>
+                {% if line.audio_file %}
+                  <a href="{{ line.audio_file.url }}" download class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-download"></i> 다운로드
+                  </a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
     <button type="button" id="generate-button" class="btn btn-primary mb-3" style="display:none;">생성하기</button>
     <div class="mt-3">
       <button type="submit" class="btn btn-primary">
@@ -23,10 +65,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const ttsProxyUrl = "{% url 'tts_proxy' %}";
-  const voiceId = "e5f6fb1a53d0add87afb4f";
   const splitButton = document.getElementById('split-button');
   const generateButton = document.getElementById('generate-button');
-  splitButton.addEventListener('click', function() {
+  if (splitButton) splitButton.addEventListener('click', function() {
     const container = document.getElementById('steps-container');
     container.innerHTML = '';
     const contentField = document.getElementById('id_contents');
@@ -88,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
       generateButton.style.display = 'inline-block';
     }
   });
-  generateButton.addEventListener('click', async function() {
+  if (generateButton) generateButton.addEventListener('click', async function() {
     generateButton.disabled = true;
     const container = document.getElementById('steps-container');
     const textareas = container.querySelectorAll('textarea[name^="step_"]');
@@ -96,6 +137,8 @@ document.addEventListener('DOMContentLoaded', function() {
       const text = ta.value.trim();
       if (!text) continue;
       try {
+        const wrapper = ta.closest('.card') || ta.closest('[data-line-id]');
+        const style = wrapper.querySelector('select[name^="style_"]').value;
         const response = await fetch(ttsProxyUrl, {
           method: 'POST',
           headers: {
@@ -105,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
             voice_id: voiceId,
             text,
             language: 'ko',
-            style: 'neutral',
+            style: style,
             model: 'sona_speech_1'
           })
         });
@@ -114,13 +157,86 @@ document.addEventListener('DOMContentLoaded', function() {
         const audio = document.createElement('audio');
         audio.controls = true;
         audio.src = URL.createObjectURL(blob);
-        const wrapper = ta.closest('.row');
         const audioContainer = wrapper.querySelector('.audio-container');
         audioContainer.appendChild(audio);
       } catch (err) {
         console.error(err);
+        let alertEl = document.querySelector('#tts-error-alert');
+        if (!alertEl) {
+          alertEl = document.createElement('div');
+          alertEl.id = 'tts-error-alert';
+          alertEl.className = 'alert alert-danger';
+          document.querySelector('.container').prepend(alertEl);
+        }
+        alertEl.textContent = 'TTS 생성 중 오류가 발생했습니다: ' + (err.message || '알 수 없는 오류');
       }
     }
+  });
+
+  // Attach regenerate handlers
+  document.querySelectorAll('.regenerate').forEach(button => {
+    button.addEventListener('click', async function() {
+      const btn = this;
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      // show spinner
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>생성중...';
+      const lineId = btn.dataset.lineId;
+      const wrapper = document.querySelector(`.card[data-line-id="${lineId}"]`);
+      const textarea = wrapper.querySelector('textarea');
+      const select = wrapper.querySelector('select[name^="voice_id_"]');
+      const text = textarea.value.trim();
+      const voice_id = select.value;
+      if (!text) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        return;
+      }
+      try {
+        const style = wrapper.querySelector('select[name^="style_"]').value;
+        const response = await fetch(ttsProxyUrl, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            line_id: lineId,
+            voice_id: voice_id,
+            text: text,
+            language: 'ko',
+            style: style,
+            model: 'sona_speech_1'
+          })
+        });
+        if (!response.ok) throw new Error('TTS error: '+response.statusText);
+        const blob = await response.blob();
+        const audioContainer = wrapper.querySelector('.audio-container');
+        audioContainer.innerHTML = '';
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.className = 'w-100';
+        audio.src = URL.createObjectURL(blob);
+        audioContainer.appendChild(audio);
+      } catch (err) {
+        console.error(err);
+        const errorContainer = wrapper.querySelector('.audio-container');
+        // Remove any existing error message
+        let errorMsg = errorContainer.querySelector('.tts-error-message');
+        if (!errorMsg) {
+          errorMsg = document.createElement('div');
+          errorMsg.className = 'tts-error-message alert alert-danger';
+          errorContainer.appendChild(errorMsg);
+        }
+        // Set and update the text
+        errorMsg.textContent = '오류 발생: ' + (err.message || '알 수 없는 오류');
+        // Flash background then fade to transparent
+        errorMsg.style.transition = 'background-color 0.5s ease-out';
+        setTimeout(() => {
+          errorMsg.style.backgroundColor = 'transparent';
+        }, 2000);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    });
   });
 });
 </script>
