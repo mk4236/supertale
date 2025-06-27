@@ -25,23 +25,70 @@
     <div class="mb-3 d-flex justify-content-between">
       
       <div>
-        <a href="{% url 'supertone_list' %}" class="btn btn-secondary">목록으로</a>
+        <a href="{% url 'supertone_list' %}" class="btn btn-secondary btn-sm">목록으로</a>
+        <a href="{% url 'supertone_download_zip' form.instance.pk %}" class="btn btn-success ms-2 btn-sm">
+          <i class="fas fa-file-archive"></i> 오디오 모음 다운로드
+        </a>
         {% comment %} <a href="{% url 'supertone_merge_audio' form.instance.pk %}" 
           class="btn btn-success">
           mp3 합쳐서 다운로드
         </a> {% endcomment %}
-      </div>      
+      </div>
 
       <div class="d-flex justify-content-between">
-        <button type="button" id="regenerate-all" class="btn btn-outline-secondary me-2">
+        <button type="button" id="regenerate-all" class="btn btn-outline-secondary me-2 btn-sm">
           전체 새로만들기
         </button>
-        <button type="button" id="regenerate-missing" class="btn btn-outline-primary">
+        <button type="button" id="regenerate-missing" class="btn btn-outline-primary btn-sm">
           음성 없는 것만 새로만들기
         </button>
       </div>
     </div>
     <div id="steps-container">
+      <!-- TTS Preview Section (like create view) -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h6 class="mb-3">미리 듣기</h6>
+          <div class="row align-items-center mb-2">
+            <div class="col-auto">
+              {% bootstrap_field form.voice label="음성" wrapper="div" wrapper_class="mb-0" field_class="form-select form-select-sm w-auto" show_help=False %}
+            </div>
+            <div class="col-auto">
+              {% bootstrap_field form.style label="스타일" wrapper="div" wrapper_class="mb-0" field_class="form-select form-select-sm w-auto" show_help=False %}
+            </div>
+            <div class="col-auto">
+              {% bootstrap_field form.pitch_shift label="음정 조정" wrapper="div" wrapper_class="mb-0" field_class="form-control form-control-sm w-auto" show_help=False attrs="{'type':'number','min':'-12','max':'12','step':'1'}" %}
+            </div>
+            <div class="col-auto">
+              {% bootstrap_field form.pitch_variance label="억양 변화" wrapper="div" wrapper_class="mb-0" field_class="form-control form-control-sm w-auto" show_help=False attrs="{'type':'number','min':'0.1','max':'2','step':'0.1'}" %}
+            </div>
+            <div class="col-auto">
+              {% bootstrap_field form.speed label="속도" wrapper="div" wrapper_class="mb-0" field_class="form-control form-control-sm w-auto" show_help=False attrs="{'type':'number','min':'0.5','max':'2','step':'0.1'}" %}
+            </div>
+          </div>
+          <div class="alert alert-secondary my-2 small text-muted" style="opacity:0.8;">
+            <ul class="mb-0">
+              <li><b>음정 조정 (pitch_shift):</b> 음정의 높낮이를 조정합니다. 0은 원래 보이스 음정이며, -12단계(낮음)에서 +12단계(높음)까지 조절 가능합니다.</li>
+              <li><b>억양 변화 (pitch_variance):</b> 발화 중 억양의 변화 정도를 조절합니다. 값이 작을수록 평탄한 억양, 클수록 풍부한 억양을 생성하며 0.1에서 2 사이의 값을 가집니다.</li>
+              <li><b>속도 (speed):</b> 발화 속도를 조절합니다. 1보다 작으면 느려지고, 크면 빨라지며 0.5에서 2 사이의 값을 가집니다.</li>
+            </ul>
+          </div>
+          <div class="mb-3">
+            <textarea id="preview-text" class="form-control" rows="3" placeholder="미리 듣고 싶은 텍스트를 입력하세요.">{{form.instance.text}}</textarea>
+          </div>
+          <div class="mb-3 audio-container">
+            <audio id="preview-audio" controls class="w-100"></audio>
+          </div>
+          <div class="d-flex justify-content-end">
+            <button type="button" id="preview-button" class="btn btn-sm btn-outline-secondary">
+              <i class="fas fa-play"></i> 미리듣기
+            </button>
+            <button type="button" id="apply-preview" class="btn btn-sm btn-outline-primary ms-2">
+              <i class="fas fa-redo-alt"></i> 전체에 반영 및 음성 재생성
+            </button>
+          </div>
+        </div>
+      </div>
       {% if form.instance.pk %}
         {% for line in form.instance.lines.all %}
           <div class="card mb-4" data-line-id="{{ line.id }}">
@@ -49,16 +96,52 @@
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="mb-0">{{ forloop.counter }}번 TTS</h6>
                 <div class="d-flex">
-                  <select name="voice_id_{{ forloop.counter }}" class="form-select w-auto me-2">
-                    {% for voice in voice_list %}
-                      <option value="{{ voice.voice_id }}" {% if voice.voice_id == line.voice.voice_id %}selected{% endif %}>{{ voice.name }}</option>
-                    {% endfor %}
-                  </select>
-                  <select name="style_{{ forloop.counter }}" class="form-select w-auto">
-                    {% for key, label in voice_styles %}
-                      <option value="{{ key }}" {% if key == line.style %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                  </select>
+                  <div class="col-auto mb-0 me-2">
+                    <label for="voice_id_{{ forloop.counter }}" class="form-label small">음성</label>
+                    <select name="voice_id_{{ forloop.counter }}" class="form-select w-auto me-2">
+                      {% for voice in voice_list %}
+                        <option value="{{ voice.voice_id }}" {% if voice.voice_id == line.voice.voice_id %}selected{% endif %}>{{ voice.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-auto mb-0 me-2">
+                    <label for="style_{{ forloop.counter }}" class="form-label small">스타일</label>
+                    <select name="style_{{ forloop.counter }}" class="form-select w-auto me-2">
+                      {% for key, label in voice_styles %}
+                        <option value="{{ key }}" {% if key == line.style %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-auto mb-0 me-2">
+                    <label for="id_pitch_shift_{{ forloop.counter }}" class="form-label small">음정 조정</label>
+                    <input type="number"
+                           name="pitch_shift_{{ forloop.counter }}"
+                           id="id_pitch_shift_{{ forloop.counter }}"
+                           min="-12" max="12" step="1"
+                           class="form-control w-auto"
+                           value="{{ line.pitch_shift }}"
+                           onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }">
+                  </div>
+                  <div class="col-auto mb-0 me-2">
+                    <label for="id_pitch_variance_{{ forloop.counter }}" class="form-label small">억양 변화</label>
+                    <input type="number"
+                           name="pitch_variance_{{ forloop.counter }}"
+                           id="id_pitch_variance_{{ forloop.counter }}"
+                           min="0.1" max="2" step="0.1"
+                           class="form-control w-auto"
+                           value="{{ line.pitch_variance }}"
+                           onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }">
+                  </div>
+                  <div class="col-auto mb-0">
+                    <label for="id_speed_{{ forloop.counter }}" class="form-label small">속도</label>
+                    <input type="number"
+                           name="speed_{{ forloop.counter }}"
+                           id="id_speed_{{ forloop.counter }}"
+                           min="0.5" max="2" step="0.1"
+                           class="form-control w-auto"
+                           value="{{ line.speed }}"
+                           onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }">
+                  </div>
                 </div>
               </div>
               <div class="mb-3">
@@ -162,6 +245,9 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         const wrapper = ta.closest('.card') || ta.closest('[data-line-id]');
         const style = wrapper.querySelector('select[name^="style_"]').value;
+        const pitchShift = wrapper.querySelector('input[name^="pitch_shift_"]').value;
+        const pitchVariance = wrapper.querySelector('input[name^="pitch_variance_"]').value;
+        const speedVal = wrapper.querySelector('input[name^="speed_"]').value;
         const response = await fetch(ttsProxyUrl, {
           method: 'POST',
           headers: {
@@ -172,7 +258,10 @@ document.addEventListener('DOMContentLoaded', function() {
             text,
             language: 'ko',
             style: style,
-            model: 'sona_speech_1'
+            model: 'sona_speech_1',
+            pitch_shift: pitchShift,
+            pitch_variance: pitchVariance,
+            speed: speedVal
           })
         });
         if (!response.ok) throw new Error('TTS error: ' + response.statusText);
@@ -238,6 +327,9 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       try {
         const style = wrapper.querySelector('select[name^="style_"]').value;
+        const pitchShift = wrapper.querySelector('input[name^="pitch_shift_"]').value;
+        const pitchVariance = wrapper.querySelector('input[name^="pitch_variance_"]').value;
+        const speedVal = wrapper.querySelector('input[name^="speed_"]').value;
         const response = await fetch(ttsProxyUrl, {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
@@ -247,7 +339,10 @@ document.addEventListener('DOMContentLoaded', function() {
             text: text,
             language: 'ko',
             style: style,
-            model: 'sona_speech_1'
+            model: 'sona_speech_1',
+            pitch_shift: pitchShift,
+            pitch_variance: pitchVariance,
+            speed: speedVal
           })
         });
         if (!response.ok) throw new Error('TTS error: '+response.statusText);
@@ -325,6 +420,78 @@ document.addEventListener('DOMContentLoaded', function() {
           if (btn) btn.click();
         }
       });
+    });
+  }
+
+  // 자동으로 로딩 시 음성 없는 것만 새로만들기 실행
+  if (regenMissingBtn) {
+    regenMissingBtn.click();
+  }
+
+  // TTS preview in update view
+  const previewBtn = document.getElementById('preview-button');
+  if (previewBtn) {
+    const previewUrl = "{% url 'tts_proxy_preview' %}";
+    previewBtn.addEventListener('click', async function() {
+      const textEl = document.getElementById('preview-text');
+      const audioEl = document.getElementById('preview-audio');
+      if (!textEl || !audioEl) return;
+      const text = textEl.value.trim();
+      if (!text) return;
+      previewBtn.disabled = true;
+      previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      try {
+        const voice = document.querySelector('select[name="voice"]').value;
+        const style = document.querySelector('select[name="style"]').value;
+        const pitch_shift = document.querySelector('input[name="pitch_shift"]').value;
+        const pitch_variance = document.querySelector('input[name="pitch_variance"]').value;
+        const speed = document.querySelector('input[name="speed"]').value;
+        const response = await fetch(previewUrl, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            voice_id: voice,
+            text: text,
+            language: '{{ form.instance.language|default:"ko" }}',
+            style: style,
+            model: '{{ form.instance.model|default:"sona_speech_1" }}',
+            pitch_shift: pitch_shift,
+            pitch_variance: pitch_variance,
+            speed: speed
+          })
+        });
+        if (!response.ok) throw new Error('TTS error: ' + response.statusText);
+        const blob = await response.blob();
+        audioEl.src = URL.createObjectURL(blob);
+        audioEl.play();
+      } catch (err) {
+        console.error(err);
+        alert('음성 미리듣기에 실패했습니다: ' + (err.message || '알 수 없는 오류'));
+      } finally {
+        previewBtn.disabled = false;
+        previewBtn.innerHTML = '<i class="fas fa-play"></i> 미리듣기';
+      }
+    });
+  }
+  // Apply preview settings and text to all lines and regenerate
+  const applyBtn = document.getElementById('apply-preview');
+  if (applyBtn) {
+    applyBtn.addEventListener('click', function() {
+      // Propagate selected preview options to each line's controls
+      const previewVoice = document.querySelector('select[name="voice"]').value;
+      const previewStyle = document.querySelector('select[name="style"]').value;
+      const previewPitch = document.querySelector('input[name="pitch_shift"]').value;
+      const previewVariance = document.querySelector('input[name="pitch_variance"]').value;
+      const previewSpeed = document.querySelector('input[name="speed"]').value;
+
+      document.querySelectorAll('select[name^="voice_id_"]').forEach(el => el.value = previewVoice);
+      document.querySelectorAll('select[name^="style_"]').forEach(el => el.value = previewStyle);
+      document.querySelectorAll('input[name^="pitch_shift_"]').forEach(el => el.value = previewPitch);
+      document.querySelectorAll('input[name^="pitch_variance_"]').forEach(el => el.value = previewVariance);
+      document.querySelectorAll('input[name^="speed_"]').forEach(el => el.value = previewSpeed);
+
+      // trigger regenerate on all lines
+      document.querySelectorAll('.regenerate').forEach(btn => btn.click());
     });
   }
 });

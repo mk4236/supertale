@@ -6,10 +6,82 @@
   <h4 class="mb-3">
     컨텐츠 생성
   </h4>
-  <form method="post">
+  <form method="post" novalidate>
     {% csrf_token %}
-    {% bootstrap_field form.title wrapper="div" wrapper_class="mb-3" label="제목" %}
-    {% bootstrap_field form.contents wrapper="div" wrapper_class="mb-3" label="내용" %}
+    {% bootstrap_field form.title wrapper="div" wrapper_class="mb-3" label="제목" show_help=False show_errors=True %}
+    {% bootstrap_field form.contents wrapper="div" wrapper_class="mb-3" label="내용" show_help=False show_errors=True %}
+    <input type="hidden" name="language" id="id_language" value="{{ form.language.value|default:'ko' }}">
+    <input type="hidden" name="model" id="id_model" value="{{ form.model.value|default:'sona_speech_1' }}">
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row mb-2 align-items-center">
+          <div class="col d-flex flex-wrap gap-2">
+            
+            {% bootstrap_field form.voice label="음성" wrapper="div" wrapper_class="mb-0 me-2 col-auto" field_class="form-select form-select-sm w-auto" show_help=False %}
+            {% bootstrap_field form.style label="스타일" wrapper="div" wrapper_class="mb-0 me-2 col-auto" field_class="form-select form-select-sm w-auto" show_help=False %}
+            <div class="mb-0 me-2 col-auto">
+              <label for="id_pitch_shift" class="form-label">음정 조정</label>
+              <input type="number"
+                     name="pitch_shift"
+                     id="id_pitch_shift"
+                     min="-12" max="12" step="1"
+                     class="form-control form-control-sm"
+                     style="width:100px"
+                     onblur="this.value = Math.max(Math.min(this.value, this.max), this.min)"
+                     value="{{ form.pitch_shift.value }}">
+            </div>
+            <div class="mb-0 me-2 col-auto">
+              <label for="id_pitch_variance" class="form-label">억양 변화</label>
+              <input type="number"
+                     name="pitch_variance"
+                     id="id_pitch_variance"
+                     min="0.1" max="2" step="0.1"
+                     class="form-control form-control-sm"
+                     style="width:100px"
+                     onblur="this.value = Math.max(Math.min(this.value, this.max), this.min)"
+                     value="{{ form.pitch_variance.value }}">
+            </div>
+            <div class="mb-0 col-auto">
+              <label for="id_speed" class="form-label">속도</label>
+              <input type="number"
+                     name="speed"
+                     id="id_speed"
+                     min="0.5" max="2" step="0.1"
+                     class="form-control form-control-sm"
+                     style="width:100px"
+                     onblur="this.value = Math.max(Math.min(this.value, this.max), this.min)"
+                     value="{{ form.speed.value }}">
+            </div>            
+          </div>
+        </div>
+        <div class="alert alert-secondary my-2 small text-muted" style="opacity:0.8;">
+          <ul class="mb-0">
+            <li><b>음정 조정 (pitch_shift):</b> 음정의 높낮이를 조정합니다. 0은 원래 보이스 음정이며, -12단계(낮음)에서 +12단계(높음)까지 조절 가능합니다.</li>
+            <li><b>억양 변화 (pitch_variance):</b> 발화 중 억양의 변화 정도를 조절합니다. 값이 작을수록 평탄한 억양, 클수록 풍부한 억양을 생성하며 0.1에서 2 사이의 값을 가집니다.</li>
+            <li><b>속도 (speed):</b> 발화 속도를 조절합니다. 1보다 작으면 느려지고, 크면 빨라지며 0.5에서 2 사이의 값을 가집니다.</li>
+          </ul>
+        </div>
+        <div class="mb-3">
+          <textarea name="text" class="form-control" rows="3">음성을 미리 만들어볼 수 있어요. 세팅한 음성은 다음과 같이 나옵니다.</textarea>
+        </div>
+        <div class="mb-3 audio-container">
+          {% if line.audio_file %}
+            <audio controls class="w-100" src="{{ line.audio_file.url }}"></audio>
+          {% else %}
+            <audio controls class="w-100"></audio>
+          {% endif %}
+        </div>
+        <div class="d-flex justify-content-end">
+          <button type="button" class="btn btn-sm btn-outline-secondary regenerate me-2">
+            <i class="fas fa-play"></i> 음성 미리듣기
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    
     <div class="d-flex justify-content-between mt-3">
       <a href="{% url 'supertone_list' %}" class="btn btn-secondary">
         취소
@@ -20,4 +92,52 @@
     </div>
   </form>
 </div>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const ttsUrl = "{% url 'tts_proxy_preview' %}";
+    // Handle preview buttons
+    document.querySelectorAll('.regenerate').forEach(button => {
+      button.addEventListener('click', async function() {
+        const card = button.closest('.card');
+        // gather parameters
+        const text = card.querySelector('textarea').value.trim();
+        const voice = card.querySelector('select[name="voice"]').value;
+        const style = card.querySelector('select[name="style"]').value;
+        const pitch_shift = card.querySelector('input[name="pitch_shift"]').value;
+        const pitch_variance = card.querySelector('input[name="pitch_variance"]').value;
+        const speed = card.querySelector('input[name="speed"]').value;
+        if (!text) return;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        try {
+          const response = await fetch(ttsUrl, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              voice_id: voice,
+              text: text,
+              style: style,
+              language: '{{ form.language.value|default:"ko" }}',
+              model: '{{ form.model.value|default:"sona_speech_1" }}',
+              pitch_shift: pitch_shift,
+              pitch_variance: pitch_variance,
+              speed: speed
+            })
+          });
+          if (!response.ok) throw new Error('TTS error: '+response.statusText);
+          const blob = await response.blob();
+          const audio = card.querySelector('audio');
+          audio.src = URL.createObjectURL(blob);
+          audio.play();
+        } catch (err) {
+          console.error(err);
+          alert('음성 생성에 실패했습니다.');
+        } finally {
+          button.disabled = false;
+          button.innerHTML = '<i class="fas fa-play"></i> 음성 미리듣기';
+        }
+      });
+    });
+  });
+</script>
 {% endblock %}

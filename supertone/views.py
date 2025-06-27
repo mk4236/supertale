@@ -2,6 +2,10 @@ import json
 import logging
 import re
 
+import os
+import zipfile
+from io import BytesIO
+
 import httpx
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -65,6 +69,27 @@ def merge_audio(request, pk):
     return resp
 
 
+# 다운로드: 모든 라인 오디오 ZIP으로 묶어 반환
+def download_zip(request, pk):
+    """
+    주어진 SuperTone(pk)에 속한 모든 라인 오디오 파일을 ZIP으로 묶어 반환합니다.
+    """
+    lines = SuperToneLine.objects.filter(supertone_id=pk).order_by("order")
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for line in lines:
+            if not line.audio_file:
+                continue
+            file_path = line.audio_file.path
+            arcname = os.path.basename(file_path)
+            zipf.write(file_path, arcname)
+    buffer.seek(0)
+    filename = f"supertone_{pk}_audio.zip"
+    resp = HttpResponse(buffer.read(), content_type="application/zip")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
+
+
 class SuperToneListView(LoginRequiredMixin, ListView):
     model = SuperTone
     template_name = "supertone/list.html"
@@ -91,11 +116,30 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
         content = form.cleaned_data.get("contents", "")
         # Split on periods, quotes or newlines; trim whitespace on both sides; skip empty segments
         raw_segments = re.split(r'[.\r\n"]+', content)
+        # Extract TTS parameters for each line
+        voice = form.cleaned_data.get("voice")
+        style = form.cleaned_data.get("style")
+        language = form.cleaned_data.get("language")
+        model_type = form.cleaned_data.get("model")
+        pitch_shift = form.cleaned_data.get("pitch_shift")
+        pitch_variance = form.cleaned_data.get("pitch_variance")
+        speed = form.cleaned_data.get("speed")
         for idx, seg in enumerate(raw_segments, start=1):
             text = seg.strip()
             if not text:
                 continue
-            SuperToneLine.objects.create(supertone=self.object, text=text, order=idx)
+            SuperToneLine.objects.create(
+                supertone=self.object,
+                text=text,
+                order=idx,
+                voice=voice,
+                style=style,
+                language=language,
+                model=model_type,
+                pitch_shift=pitch_shift,
+                pitch_variance=pitch_variance,
+                speed=speed,
+            )
         return response
 
     def get_success_url(self):
@@ -155,12 +199,20 @@ def tts_proxy(request):
     language = data.get("language", LanguageType.KO)
     style = data.get("style", VoiceStyleType.NEUTRAL)
     model = data.get("model", ModelType.SONA_SPEECH_1)
+    pitch_shift = data.get("pitch_shift", 0)
+    pitch_variance = data.get("pitch_variance", 1)
+    speed = data.get("speed", 1)
     # Prepare payload for TTS API
     payload = {
         "text": text,
         "language": language,
         "style": style,
         "model": model,
+        "voice_settings": {
+            "pitch_shift": pitch_shift,
+            "pitch_variance": pitch_variance,
+            "speed": speed,
+        },
     }
     line_id = data.get("line_id")
 
@@ -224,6 +276,86 @@ def tts_proxy(request):
         return resp
     except Exception as exc:
         logger.exception("Unexpected error in tts_proxy")
+        resp = JsonResponse({"error": "서버 내부 오류", "detail": str(exc)}, status=500)
+        resp["Access-Control-Allow-Origin"] = "*"
+        return resp
+
+
+@csrf_exempt
+@require_http_methods(["OPTIONS", "POST"])
+def tts_proxy_preview(request):
+    """
+    CORS-enabled TTS proxy that returns audio only, without saving to the database.
+    """
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        response = HttpResponse()
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    if request.method != "POST":
+        resp = JsonResponse({"error": "POST만 허용"}, status=405)
+        resp["Access-Control-Allow-Origin"] = "*"
+        return resp
+
+    data = json.loads(request.body.decode("utf-8") or "{}")
+    voice_id = data.get("voice_id", settings.SUPERTONE_VOICE_ID)
+    text = data.get("text")
+    language = data.get("language", LanguageType.KO)
+    style = data.get("style", VoiceStyleType.NEUTRAL)
+    model = data.get("model", ModelType.SONA_SPEECH_1)
+    pitch_shift = data.get("pitch_shift", 0)
+    pitch_variance = data.get("pitch_variance", 1)
+    speed = data.get("speed", 1)
+
+    if not voice_id or not text:
+        resp = JsonResponse(
+            {"error": "voice_id와 text를 모두 설정해야 합니다."}, status=400
+        )
+        resp["Access-Control-Allow-Origin"] = "*"
+        return resp
+
+    payload = {
+        "text": text,
+        "language": language,
+        "style": style,
+        "model": model,
+        "voice_settings": {
+            "pitch_shift": pitch_shift,
+            "pitch_variance": pitch_variance,
+            "speed": speed,
+        },
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "x-sup-api-key": settings.SUPERTONE_API_KEY,
+    }
+    url = f"https://supertoneapi.com/v1/text-to-speech/{voice_id}"
+    try:
+        response = httpx.post(url, json=payload, headers=headers, timeout=60)
+        if response.status_code >= 400:
+            resp = JsonResponse(
+                {
+                    "error": "TTS 호출 실패",
+                    "status": response.status_code,
+                    "detail": response.text,
+                },
+                status=502,
+            )
+            resp["Access-Control-Allow-Origin"] = "*"
+            return resp
+        # return raw audio
+        resp = HttpResponse(
+            response.content,
+            status=response.status_code,
+            content_type=response.headers.get("Content-Type", "audio/wav"),
+        )
+        resp["Access-Control-Allow-Origin"] = "*"
+        return resp
+    except Exception as exc:
+        logger.exception("Unexpected error in tts_proxy_preview")
         resp = JsonResponse({"error": "서버 내부 오류", "detail": str(exc)}, status=500)
         resp["Access-Control-Allow-Origin"] = "*"
         return resp

@@ -22,6 +22,49 @@ class VoiceStyle(models.Model):
 class SuperTone(models.Model):
     title = models.CharField(max_length=200)
     contents = models.TextField()
+
+    # -- TTS 공통 필드 시작 --
+    voice = models.ForeignKey(
+        Voice,
+        to_field="voice_id",
+        db_column="voice_id",
+        on_delete=models.PROTECT,
+        default="e5f6fb1a53d0add87afb4f",
+    )
+    style = models.CharField(
+        max_length=10,
+        choices=VoiceStyleType.choices,
+        default=VoiceStyleType.NEUTRAL,
+    )
+    language = models.CharField(
+        max_length=10,
+        choices=LanguageType.choices,
+        default=LanguageType.KO,
+    )
+    model = models.CharField(
+        max_length=30,
+        choices=ModelType.choices,
+        default=ModelType.SONA_SPEECH_1,
+    )
+
+    # 음성 생성 추가 파라미터
+    pitch_shift = models.IntegerField(
+        default=0,
+        help_text="음정의 높낮이를 조정합니다. 0은 원래 보이스 음정이며 ±12까지 가능합니다.",
+    )
+    pitch_variance = models.FloatField(
+        default=1,
+        help_text="발화 중 억양 변화 정도를 조절합니다. 0.1~2 사이의 값을 가집니다.",
+    )
+    speed = models.FloatField(
+        default=1, help_text="발화 속도를 조절합니다. 0.5~2 사이의 값을 가집니다."
+    )
+
+    audio_file = models.FileField(upload_to="supertone/audio/", null=True, blank=True)
+
+    text = models.TextField()
+    # -- TTS 공통 필드 끝 --
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -73,6 +116,18 @@ class SuperToneLine(models.Model):
     )
     order = models.PositiveIntegerField()
     audio_file = models.FileField(upload_to="supertone/audio/", null=True, blank=True)
+    # 음성 생성 추가 파라미터
+    pitch_shift = models.IntegerField(
+        default=0,
+        help_text="음정의 높낮이를 조정합니다. 0은 원래 보이스 음정이며 ±12까지 가능합니다.",
+    )
+    pitch_variance = models.FloatField(
+        default=1,
+        help_text="발화 중 억양 변화 정도를 조절합니다. 0.1~2 사이의 값을 가집니다.",
+    )
+    speed = models.FloatField(
+        default=1, help_text="발화 속도를 조절합니다. 0.5~2 사이의 값을 가집니다."
+    )
 
     class Meta:
         ordering = ["order"]
