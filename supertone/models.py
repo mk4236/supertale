@@ -37,7 +37,7 @@ class SuperTone(models.Model):
         default="e5f6fb1a53d0add87afb4f",
     )
     style = models.CharField(
-        max_length=10,
+        max_length=50,
         default=VoiceStyleType.NEUTRAL,
     )
     language = models.CharField(
@@ -104,7 +104,7 @@ class SuperToneLine(models.Model):
         default="e5f6fb1a53d0add87afb4f",
     )
     style = models.CharField(
-        max_length=10,
+        max_length=50,
         default=VoiceStyleType.NEUTRAL,
     )
     language = models.CharField(

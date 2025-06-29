@@ -128,7 +128,7 @@
                   </div>
                   <div class="col-auto mb-0 me-2">
                     <label for="style_{{ forloop.counter }}" class="form-label small">스타일</label>
-                    <select name="style_{{ forloop.counter }}" class="form-select w-auto me-2"></select>
+                    <select name="style_{{ forloop.counter }}" data-initial="{{ line.style }}" class="form-select w-auto me-2"></select>
                   </div>
                   <div class="col-auto mb-0 me-2">
                     <label for="id_pitch_shift_{{ forloop.counter }}" class="form-label small">음정 조정</label>
@@ -176,9 +176,15 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary regenerate me-2" data-line-id="{{ line.id }}">
                   <i class="fas fa-sync-alt"></i> 저장 및 음성생성
                 </button>
-                <a href="" download class="btn btn-sm btn-outline-secondary download-btn" style="display:none;">
-                  <i class="fas fa-download"></i> 다운로드
-                </a>
+                {% if line.audio_file %}
+                  <a href="{{ line.audio_file.url }}" download class="btn btn-sm btn-outline-secondary download-btn">
+                    <i class="fas fa-download"></i> 다운로드
+                  </a>
+                {% else %}
+                  <a href="#" download class="btn btn-sm btn-outline-secondary download-btn" style="display:none;">
+                    <i class="fas fa-download"></i> 다운로드
+                  </a>
+                {% endif %}
               </div>
             </div>
           </div>
@@ -441,9 +447,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // 자동으로 로딩 시 음성 없는 것만 새로만들기 실행
+  // 자동으로 로딩 시 음성 없는 것만 새로만들기 실행 (딜레이 후)
   if (regenMissingBtn) {
-    regenMissingBtn.click();
+    // 페이지 로드 후 스타일 셀렉트가 모두 세팅된 다음에 실행
+    setTimeout(function() {
+      regenMissingBtn.click();
+    }, 100);
   }
 
   // TTS preview in update view
@@ -525,8 +534,8 @@ document.addEventListener('DOMContentLoaded', function() {
       try { styles = JSON.parse(raw); } catch { styles = []; }
       var idx = select.name.match(/voice_id_(\d+)/)[1];
       var styleSelect = document.querySelector('select[name="style_' + idx + '"]');
-      // Remember current value
-      var current = styleSelect.value;
+      // Remember current value (from data-initial attribute)
+      var current = styleSelect.getAttribute('data-initial');
       styleSelect.innerHTML = '';
       styles.forEach(function(s) {
         var o = document.createElement('option');
@@ -558,6 +567,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 1. Declare initialStyle before updateVoiceStyles
+    const initialStyle = "{{ form.style.value|escapejs }}";
     const voiceSelect = document.getElementById('id_voice');
     const styleSelect = document.getElementById('id_style');
     function updateVoiceStyles() {
@@ -577,6 +588,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const o = document.createElement('option');
         o.value = name;
         o.textContent = name;
+        if (name === initialStyle) {
+          o.selected = true;
+        }
         styleSelect.appendChild(o);
       });
     }
