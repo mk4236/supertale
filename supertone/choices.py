@@ -25,5 +25,5 @@ class VoiceStyleType(models.TextChoices):
     """
 
     NEUTRAL = "neutral", "일반"
-    HAPPY = "happy", "기쁨"
-    SERENE = "serene", "고요한"
+    # HAPPY = "happy", "기쁨"
+    # SERENE = "serene", "고요한"
