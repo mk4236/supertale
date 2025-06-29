@@ -17,9 +17,33 @@
       <div class="card-body">
         <div class="row mb-2 align-items-center">
           <div class="col d-flex flex-wrap gap-2">
-            
-            {% bootstrap_field form.voice label="음성" wrapper="div" wrapper_class="mb-0 me-2 col-auto" field_class="form-select form-select-sm w-auto" show_help=False %}
-            {% bootstrap_field form.style label="스타일" wrapper="div" wrapper_class="mb-0 me-2 col-auto" field_class="form-select form-select-sm w-auto" show_help=False %}
+
+            <div class="mb-0 me-2 col-auto">
+              <label for="id_voice" class="form-label small">음성</label>
+              <select name="voice" id="id_voice" class="form-select form-select-sm w-auto">
+                {% for voice in voice_list %}
+                  <option value="{{ voice.voice_id }}" data-styles="{{ voice.styles }}" {% if voice.voice_id == form.voice.value %}selected{% endif %}>
+                    {{ voice.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-0 me-2 col-auto">
+              <label for="id_style" class="form-label small">음성 스타일</label>
+              <select name="style" id="id_style" class="form-select form-select-sm w-auto">
+                {% for voice in voice_list %}
+                  {% if voice.voice_id == form.voice.value %}
+                    {% for style in voice.styles %}
+                      <option value="{{ style }}" {% if style == form.style.value %}selected{% endif %}>{{ style }}</option>
+                    {% endfor %}
+                  {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+
+
+            {% bootstrap_field form.style label="스타일" wrapper="div" wrapper_class="mb-0 me-2 col-auto" field_class="form-select form-select-sm w-auto" show_help=False attrs="{'id': 'id_style'}" %}
             <div class="mb-0 me-2 col-auto">
               <label for="id_pitch_shift" class="form-label">음정 조정</label>
               <input type="number"
@@ -52,7 +76,7 @@
                      style="width:100px"
                      onblur="this.value = Math.max(Math.min(this.value, this.max), this.min)"
                      value="{{ form.speed.value }}">
-            </div>            
+            </div>
           </div>
         </div>
         <div class="alert alert-secondary my-2 small text-muted" style="opacity:0.8;">
@@ -81,7 +105,7 @@
     </div>
 
 
-    
+
     <div class="d-flex justify-content-between mt-3">
       <a href="{% url 'supertone_list' %}" class="btn btn-secondary">
         취소
@@ -138,6 +162,34 @@
         }
       });
     });
+  });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const voiceSelect = document.getElementById('id_voice');
+    const styleSelect = document.getElementById('id_style');
+    function updateVoiceStyles() {
+      // Get the selected option's data-styles attribute
+      const opt = voiceSelect.options[voiceSelect.selectedIndex];
+      let raw = opt.getAttribute('data-styles') || '[]';
+      // Replace single quotes with double quotes for valid JSON
+      raw = raw.replace(/'/g, '"');
+      let styles;
+      try {
+        styles = JSON.parse(raw);
+      } catch (e) {
+        styles = [];
+      }
+      styleSelect.innerHTML = '';
+      styles.forEach(function(name) {
+        const o = document.createElement('option');
+        o.value = name;
+        o.textContent = name;
+        styleSelect.appendChild(o);
+      });
+    }
+    voiceSelect.addEventListener('change', updateVoiceStyles);
+    updateVoiceStyles();  // initialize on load
   });
 </script>
 {% endblock %}

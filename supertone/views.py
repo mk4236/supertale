@@ -145,6 +145,13 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
     def get_success_url(self):
         return reverse("supertone_update", kwargs={"pk": self.object.pk})
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # 전체 Voice 객체를 템플릿에 넘겨줍니다
+        ctx["voice_list"] = Voice.objects.all()
+        ctx["voice_styles"] = VoiceStyleType.choices
+        return ctx
+
 
 class SuperToneUpdateView(LoginRequiredMixin, UpdateView):
     form_class = SuperToneUpdateForm

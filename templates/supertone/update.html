@@ -51,10 +51,30 @@
           <h6 class="mb-3">미리 듣기</h6>
           <div class="row align-items-center mb-2">
             <div class="col-auto">
-              {% bootstrap_field form.voice label="음성" wrapper="div" wrapper_class="mb-0" field_class="form-select form-select-sm w-auto" show_help=False %}
+              <div class="mb-0 me-2 col-auto">
+              <label for="id_voice" class="form-label small">음성</label>
+                <select name="voice" id="id_voice" class="form-select form-select-sm w-auto">
+                  {% for voice in voice_list %}
+                    <option value="{{ voice.voice_id }}" data-styles="{{ voice.styles }}" {% if voice.voice_id == form.voice.value %}selected{% endif %}>
+                      {{ voice.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
             </div>
             <div class="col-auto">
-              {% bootstrap_field form.style label="스타일" wrapper="div" wrapper_class="mb-0" field_class="form-select form-select-sm w-auto" show_help=False %}
+              <div class="mb-0 me-2 col-auto">
+                <label for="id_style" class="form-label small">음성 스타일</label>
+                <select name="style" id="id_style" class="form-select form-select-sm w-auto">
+                  {% for voice in voice_list %}
+                    {% if voice.voice_id == form.voice.value %}
+                      {% for style in voice.styles %}
+                        <option value="{{ style }}" {% if style == form.style.value %}selected{% endif %}>{{ style }}</option>
+                      {% endfor %}
+                    {% endif %}
+                  {% endfor %}
+                </select>
+              </div>
             </div>
             <div class="col-auto">
               {% bootstrap_field form.pitch_shift label="음정 조정" wrapper="div" wrapper_class="mb-0" field_class="form-control form-control-sm w-auto" show_help=False attrs="{'type':'number','min':'-12','max':'12','step':'1'}" %}
@@ -100,17 +120,15 @@
                     <label for="voice_id_{{ forloop.counter }}" class="form-label small">음성</label>
                     <select name="voice_id_{{ forloop.counter }}" class="form-select w-auto me-2">
                       {% for voice in voice_list %}
-                        <option value="{{ voice.voice_id }}" {% if voice.voice_id == line.voice.voice_id %}selected{% endif %}>{{ voice.name }}</option>
+                        <option value="{{ voice.voice_id }}" data-styles="{{ voice.styles|safe }}" {% if voice.voice_id == line.voice.voice_id %}selected{% endif %}>
+                          {{ voice.name }}
+                        </option>
                       {% endfor %}
                     </select>
                   </div>
                   <div class="col-auto mb-0 me-2">
                     <label for="style_{{ forloop.counter }}" class="form-label small">스타일</label>
-                    <select name="style_{{ forloop.counter }}" class="form-select w-auto me-2">
-                      {% for key, label in voice_styles %}
-                        <option value="{{ key }}" {% if key == line.style %}selected{% endif %}>{{ label }}</option>
-                      {% endfor %}
-                    </select>
+                    <select name="style_{{ forloop.counter }}" class="form-select w-auto me-2"></select>
                   </div>
                   <div class="col-auto mb-0 me-2">
                     <label for="id_pitch_shift_{{ forloop.counter }}" class="form-label small">음정 조정</label>
@@ -496,6 +514,33 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('select[name^="voice_id_"]').forEach(function(select) {
+    function updateStyles() {
+      var opt = select.options[select.selectedIndex];
+      var raw = opt.getAttribute('data-styles') || '[]';
+      raw = raw.replace(/'/g, '"');
+      var styles;
+      try { styles = JSON.parse(raw); } catch { styles = []; }
+      var idx = select.name.match(/voice_id_(\d+)/)[1];
+      var styleSelect = document.querySelector('select[name="style_' + idx + '"]');
+      // Remember current value
+      var current = styleSelect.value;
+      styleSelect.innerHTML = '';
+      styles.forEach(function(s) {
+        var o = document.createElement('option');
+        o.value = s;
+        o.textContent = s;
+        if (s === current) o.selected = true;
+        styleSelect.appendChild(o);
+      });
+    }
+    select.addEventListener('change', updateStyles);
+    updateStyles();
+  });
+});
+</script>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -510,5 +555,33 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const voiceSelect = document.getElementById('id_voice');
+    const styleSelect = document.getElementById('id_style');
+    function updateVoiceStyles() {
+      // Get the selected option's data-styles attribute
+      const opt = voiceSelect.options[voiceSelect.selectedIndex];
+      let raw = opt.getAttribute('data-styles') || '[]';
+      // Replace single quotes with double quotes for valid JSON
+      raw = raw.replace(/'/g, '"');
+      let styles;
+      try {
+        styles = JSON.parse(raw);
+      } catch (e) {
+        styles = [];
+      }
+      styleSelect.innerHTML = '';
+      styles.forEach(function(name) {
+        const o = document.createElement('option');
+        o.value = name;
+        o.textContent = name;
+        styleSelect.appendChild(o);
+      });
+    }
+    voiceSelect.addEventListener('change', updateVoiceStyles);
+    updateVoiceStyles();  // initialize on load
+  });
 </script>
 {% endblock %}
