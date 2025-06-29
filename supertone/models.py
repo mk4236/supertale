@@ -6,6 +6,11 @@ from supertone.choices import LanguageType, ModelType, VoiceStyleType
 class Voice(models.Model):
     name = models.CharField(max_length=100)
     voice_id = models.CharField(max_length=100, primary_key=True)
+    styles = models.JSONField(default=dict)
+    gender = models.CharField(max_length=20, blank=True, null=True)
+    user_case = models.CharField(max_length=50, blank=True, null=True)
+    samples = models.JSONField(default=list)
+    models = models.JSONField(default=list)
 
     def __str__(self):
         return self.name
