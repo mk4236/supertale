@@ -114,8 +114,8 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
         form.instance.updated_by = self.request.user
         response = super().form_valid(form)
         content = form.cleaned_data.get("contents", "")
-        # Split on periods, quotes or newlines; trim whitespace on both sides; skip empty segments
-        raw_segments = re.split(r'[.\r\n"]+', content)
+        # Split but keep periods and question marks at end of segments, and split on newlines or quotes
+        raw_segments = re.split(r'(?<=[\.?])\s*|[\r\n"]+', content)
         # Extract TTS parameters for each line
         voice = form.cleaned_data.get("voice")
         style = form.cleaned_data.get("style")
