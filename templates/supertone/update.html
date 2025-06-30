@@ -29,10 +29,11 @@
         <a href="{% url 'supertone_download_zip' form.instance.pk %}" class="btn btn-success ms-2 btn-sm">
           <i class="fas fa-file-archive"></i> 오디오 모음 다운로드
         </a>
-        {% comment %} <a href="{% url 'supertone_merge_audio' form.instance.pk %}" 
-          class="btn btn-success">
+        <a href="{% url 'supertone_merge_audio' form.instance.pk %}" 
+          class="btn btn-success btn-sm">
+          <i class="fas fa-download"></i>
           mp3 합쳐서 다운로드
-        </a> {% endcomment %}
+        </a> 
       </div>
 
       <div class="d-flex justify-content-between">

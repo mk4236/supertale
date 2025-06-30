@@ -32,7 +32,7 @@
     </thead>
     <tbody>
       {% for post in object_list %}
-      <tr>
+      <tr onclick="window.location.href='{% url 'supertone_update' post.pk %}'" style="cursor: pointer;">
         <td><a href="{% url 'supertone_update' post.pk %}" class="text-dark text-decoration-none">{{ post.title }}</a></td>
         <td>{{ post.created_at|date:"Y-m-d H:i" }}</td>
         <td>{{ post.created_by.first_name }}</td>

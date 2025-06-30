@@ -3,7 +3,7 @@ FROM python:3.10-slim
 
 # 필수 시스템 패키지 설치 (PostgreSQL 드라이버 등)
 RUN apt-get update && \
-    apt-get install -y gcc libpq-dev && \
+    apt-get install -y gcc libpq-dev ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
