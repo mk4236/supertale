@@ -32,6 +32,8 @@ from django.shortcuts import get_object_or_404
 from io import BytesIO
 from pydub import AudioSegment
 
+AudioSegment.converter = "/usr/bin/ffmpeg"
+
 
 def merge_audio(request, pk):
     """
