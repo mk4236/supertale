@@ -134,7 +134,8 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
         speed = form.cleaned_data.get("speed")
         for idx, seg in enumerate(raw_segments, start=1):
             text = seg.strip()
-            if not text:
+            # Skip empty segments or segments containing only punctuation (., !, ?, ", ')
+            if not text or re.fullmatch(r'^[\.\!\?\'"]+$', text):
                 continue
             SuperToneLine.objects.create(
                 supertone=self.object,
