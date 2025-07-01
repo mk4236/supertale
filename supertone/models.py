@@ -10,6 +10,8 @@ class Voice(models.Model):
     gender = models.CharField(max_length=20, blank=True, null=True)
     user_case = models.CharField(max_length=50, blank=True, null=True)
     samples = models.JSONField(default=list)
+    description = models.TextField(blank=True, null=True)
+    thumbnail_image_url = models.URLField(blank=True, null=True)
     models = models.JSONField(default=list)
 
     def __str__(self):
