@@ -1,0 +1,135 @@
+<div class="modal fade" id="voiceSearchModal" tabindex="-1" aria-labelledby="voiceSearchModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl" style="max-width:65%;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="voiceSearchModalLabel">상세 음성 검색</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="voice-search-form" class="row gx-2 gy-2 mb-3">
+            <div class="col-auto">
+                <select name="gender" id="voice-search-gender" class="form-select form-select-sm" style="width:auto;">
+                    <option value="">-- 성별 --</option>
+                    <option value="male">남자</option>
+                    <option value="female">여자</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <select name="age" id="voice-search-age" class="form-select form-select-sm" style="width:auto;">
+                    <option value="">-- 연령 --</option>
+                    <option value="middle-aged">middle-aged</option>
+                    <option value="young-adult">young-adult</option>
+                    <option value="child">child</option>
+                    <option value="elder">elder</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <select name="style" class="form-select form-select-sm" style="width:auto;">
+                    <option value="">-- 감정 --</option>
+                    {% for key,label in voice_styles %}
+                        <option value="{{ key }}" {% if style == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <select name="user_case" class="form-select form-select-sm" style="width:auto;">
+                    <option value="">사용처</option>
+                    {% for key,label in user_cases %}
+                        <option value="{{ key }}" {% if user_case == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm py-1" placeholder="이름 검색" >
+            </div>
+        </form>
+        <div id="voice-search-results">
+          {% for voice in voices %}
+          <div class="list-group-item mb-1" style="background-color:#f5f5f5; border-radius:8px; padding:10px;">
+            <div class="d-flex align-items-center">
+              <img src="{{ voice.thumbnail_image_url }}" alt="{{ voice.name }}"
+                   class="rounded-circle" style="width:40px; height:40px; object-fit:cover;">
+              <div class="flex-grow-1 ms-3">
+                <div class="fw-bold">{{ voice.name }}</div>
+                <div class="text-muted small d-flex align-items-center gap-2">
+                  {% if voice.gender %}
+                    {% if voice.gender == 'male' %}
+                      <span class="text-primary">남자 |</span>
+                    {% else %}
+                      <span class="text-danger">여자 |</span>
+                    {% endif %}
+                  {% endif %}
+                  {% if voice.age %}
+                    {{voice.age}} | 
+                  {% endif %}
+                  {% if voice.user_case %}
+                    {% for uc_key, uc_label in user_cases %}
+                      {% if voice.user_case == uc_key %}
+                        {{ uc_label }} |
+                      {% endif %}
+                    {% endfor %}
+                  {% endif %}
+                  {% for key,label in voice_styles %}
+                    {% if key in voice.styles %}
+                      <span class="badge bg-info small text-dark">{{ label }}</span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="d-flex gap-2">
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary preview-btn bg-body"
+                        data-samples='{{ voice.samples }}'
+                        title="미리듣기">
+                  ▶
+                </button>
+                <button type="button"
+                        class="btn btn-sm btn-outline-success voice-select-btn bg-body"
+                        data-voice-id="{{ voice.voice_id }}"
+                        title="선택">
+                  선택
+                </button>
+              </div>
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-center text-muted">검색 결과가 없습니다.</p>
+          {% endfor %}
+        </div>
+
+        <nav aria-label="페이지 네비게이션">
+          <ul class="pagination pagination-sm justify-content-center mb-0">
+            {% if voices.has_previous %}
+            <li class="page-item">
+              <a class="page-link"
+                 href="?q={{ q }}&gender={{ gender }}&style={{ style }}&user_case={{ user_case }}&page={{ voices.previous_page_number }}">«</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">«</span></li>
+            {% endif %}
+
+            {% for num in voices.paginator.page_range %}
+            <li class="page-item {% if voices.number == num %}active{% endif %}">
+              <a class="page-link"
+                 href="?q={{ q }}&gender={{ gender }}&style={{ style }}&user_case={{ user_case }}&page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+
+            {% if voices.has_next %}
+            <li class="page-item">
+              <a class="page-link"
+                 href="?q={{ q }}&gender={{ gender }}&style={{ style }}&user_case={{ user_case }}&page={{ voices.next_page_number }}">»</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">»</span></li>
+            {% endif %}
+          </ul>
+        </nav>
+        <audio id="voiceModalSampleAudio" style="display:none;"></audio>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>

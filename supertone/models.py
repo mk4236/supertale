@@ -8,6 +8,7 @@ class Voice(models.Model):
     voice_id = models.CharField(max_length=100, primary_key=True)
     styles = models.JSONField(default=dict)
     gender = models.CharField(max_length=20, blank=True, null=True)
+    age = models.CharField(max_length=20, blank=True, null=True)
     user_case = models.CharField(max_length=50, blank=True, null=True)
     samples = models.JSONField(default=list)
     description = models.TextField(blank=True, null=True)

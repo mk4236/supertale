@@ -13,6 +13,7 @@
       {% endfor %}
     {% endif %}
   </div>
+  <div id="batch-progress" class="toast-container position-fixed top-0 end-0 p-3"></div>
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">컨텐츠 오디오 작성</h2>
   </div>
@@ -23,17 +24,17 @@
       <button type="submit" class="btn btn-primary">제목수정</button>
     </div>
     <div class="mb-3 d-flex justify-content-between">
-      
+
       <div>
         <a href="{% url 'supertone_list' %}" class="btn btn-secondary btn-sm">목록으로</a>
         <a href="{% url 'supertone_download_zip' form.instance.pk %}" class="btn btn-success ms-2 btn-sm">
-          <i class="fas fa-file-archive"></i> 오디오 모음 다운로드
+          <i class="fas fa-file-archive"></i> 오디오압축파일 다운로드.zip
         </a>
-        <a href="{% url 'supertone_merge_audio' form.instance.pk %}" 
+        <a href="{% url 'supertone_merge_audio' form.instance.pk %}"
           class="btn btn-success btn-sm">
           <i class="fas fa-download"></i>
-          mp3 합쳐서 다운로드
-        </a> 
+          mp3 하나로 합쳐서 다운로드
+        </a>
       </div>
 
       <div class="d-flex justify-content-between">
@@ -51,40 +52,67 @@
         <div class="card-body">
           <h6 class="mb-3">미리 듣기</h6>
           <div class="row align-items-center mb-2">
-            <div class="col-auto">
+            <div class="col d-flex flex-wrap gap-2">
               <div class="mb-0 me-2 col-auto">
-              <label for="id_voice" class="form-label small">음성</label>
-                <select name="voice" id="id_voice" class="form-select form-select-sm w-auto">
-                  {% for voice in voice_list %}
-                    <option value="{{ voice.voice_id }}" data-styles="{{ voice.styles }}" {% if voice.voice_id == form.voice.value %}selected{% endif %}>
-                      {{ voice.name }}
-                    </option>
-                  {% endfor %}
-                </select>
+                <img id="voice_thumbnail" src="" alt="Voice Thumbnail" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
+              </div>
+              <div class="mb-0 me-2 col-auto">
+                <label for="id_voice" class="form-label small">음성</label>
+                <div class="input-group input-group-sm">
+                  <select name="voice" id="id_voice" class="form-select">
+                    {% for voice in voice_list %}
+                      <option value="{{ voice.voice_id }}" data-styles="{{ voice.styles }}" thumbnail-image-url="{{ voice.thumbnail_image_url }}" data-samples='{{ voice.samples }}' {% if voice.voice_id == form.voice.value %}selected{% endif %}>
+                        {{ voice.name }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#voiceSearchModal">
+                    상세검색
+                  </button>
+                </div>
               </div>
             </div>
             <div class="col-auto">
               <div class="mb-0 me-2 col-auto">
                 <label for="id_style" class="form-label small">음성 스타일</label>
+                
                 <select name="style" id="id_style" class="form-select form-select-sm w-auto">
                   {% for voice in voice_list %}
                     {% if voice.voice_id == form.voice.value %}
                       {% for style in voice.styles %}
-                        <option value="{{ style }}" {% if style == form.style.value %}selected{% endif %}>{{ style }}</option>
+                        <option value="{{ style }}" {% if style == form.style.value %}selected{% endif %}>{{form.style.value}}</option>
                       {% endfor %}
                     {% endif %}
                   {% endfor %}
                 </select>
               </div>
             </div>
-            <div class="col-auto">
-              {% bootstrap_field form.pitch_shift label="음정 조정" wrapper="div" wrapper_class="mb-0" field_class="form-control form-control-sm w-auto" show_help=False attrs="{'type':'number','min':'-12','max':'12','step':'1'}" %}
+            <div class="col-auto mb-0 me-2">
+              <label for="id_pitch_shift" class="form-label small">음정 조정</label>
+              <input type="number"
+                     name="pitch_shift"
+                     id="id_pitch_shift"
+                     min="-12" max="12" step="1"
+                     class="form-control w-auto form-control-sm"
+                     value="{{ form.pitch_shift.value }}">
             </div>
-            <div class="col-auto">
-              {% bootstrap_field form.pitch_variance label="억양 변화" wrapper="div" wrapper_class="mb-0" field_class="form-control form-control-sm w-auto" show_help=False attrs="{'type':'number','min':'0.1','max':'2','step':'0.1'}" %}
+            <div class="col-auto mb-0 me-2">
+              <label for="id_pitch_variance" class="form-label small">억양 변화</label>
+              <input type="number"
+                     name="pitch_variance"
+                     id="id_pitch_variance"
+                     min="0.1" max="2" step="0.1"
+                     class="form-control w-auto form-control-sm"
+                     value="{{ form.pitch_variance.value }}">
             </div>
-            <div class="col-auto">
-              {% bootstrap_field form.speed label="속도" wrapper="div" wrapper_class="mb-0" field_class="form-control form-control-sm w-auto" show_help=False attrs="{'type':'number','min':'0.5','max':'2','step':'0.1'}" %}
+            <div class="col-auto mb-0">
+              <label for="id_speed" class="form-label small">속도</label>
+              <input type="number"
+                     name="speed"
+                     id="id_speed"
+                     min="0.5" max="2" step="0.1"
+                     class="form-control w-auto form-control-sm"
+                     value="{{ form.speed.value }}">
             </div>
           </div>
           <div class="alert alert-secondary my-2 small text-muted" style="opacity:0.8;">
@@ -99,6 +127,9 @@
           </div>
           <div class="mb-3 audio-container">
             <audio id="preview-audio" controls class="w-100"></audio>
+            <audio id="voiceModalSampleAudio" style="display:none;"></audio>
+            <audio id="line_audio_hidden" style="display:none;"></audio>
+            <audio id="sample_audio_hidden" style="display:none;"></audio>
           </div>
           <div class="d-flex justify-content-end">
             <button type="button" id="preview-button" class="btn btn-sm btn-outline-secondary">
@@ -119,17 +150,31 @@
                 <div class="d-flex">
                   <div class="col-auto mb-0 me-2">
                     <label for="voice_id_{{ forloop.counter }}" class="form-label small">음성</label>
-                    <select name="voice_id_{{ forloop.counter }}" class="form-select w-auto me-2">
-                      {% for voice in voice_list %}
-                        <option value="{{ voice.voice_id }}" data-styles="{{ voice.styles|safe }}" {% if voice.voice_id == line.voice.voice_id %}selected{% endif %}>
-                          {{ voice.name }}
-                        </option>
-                      {% endfor %}
-                    </select>
+                    <div class="input-group input-group-sm w-auto align-items-center">
+                      <img id="line_thumbnail_{{ forloop.counter }}" src="" alt="Line Thumbnail"
+                           style="width:30px; height:30px; border-radius:50%; object-fit:cover; cursor:pointer; display:none;"
+                           class="me-2">
+                      <select name="voice_id_{{ forloop.counter }}" class="form-select">
+                        {% for voice in voice_list %}
+                          <option value="{{ voice.voice_id }}"
+                                  data-styles="{{ voice.styles }}"
+                                  thumbnail-image-url="{{ voice.thumbnail_image_url }}"
+                                  data-samples='{{ voice.samples }}'
+                                  {% if voice.voice_id == line.voice.voice_id %}selected{% endif %}>
+                            {{ voice.name }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                      <button class="btn btn-outline-primary" type="button"
+                              data-bs-toggle="modal" data-bs-target="#voiceSearchModal"
+                              data-target-select="voice_id_{{ forloop.counter }}">
+                        상세검색
+                      </button>
+                    </div>
                   </div>
                   <div class="col-auto mb-0 me-2">
                     <label for="style_{{ forloop.counter }}" class="form-label small">스타일</label>
-                    <select name="style_{{ forloop.counter }}" data-initial="{{ line.style }}" class="form-select w-auto me-2"></select>
+                    <select name="style_{{ forloop.counter }}" data-initial="{{ line.style }}" class="form-select w-auto me-2 form-select-sm"></select>
                   </div>
                   <div class="col-auto mb-0 me-2">
                     <label for="id_pitch_shift_{{ forloop.counter }}" class="form-label small">음정 조정</label>
@@ -137,7 +182,7 @@
                            name="pitch_shift_{{ forloop.counter }}"
                            id="id_pitch_shift_{{ forloop.counter }}"
                            min="-12" max="12" step="1"
-                           class="form-control w-auto"
+                           class="form-control w-auto form-control-sm"
                            value="{{ line.pitch_shift }}"
                            onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }">
                   </div>
@@ -147,7 +192,7 @@
                            name="pitch_variance_{{ forloop.counter }}"
                            id="id_pitch_variance_{{ forloop.counter }}"
                            min="0.1" max="2" step="0.1"
-                           class="form-control w-auto"
+                           class="form-control w-auto form-control-sm"
                            value="{{ line.pitch_variance }}"
                            onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }">
                   </div>
@@ -157,7 +202,7 @@
                            name="speed_{{ forloop.counter }}"
                            id="id_speed_{{ forloop.counter }}"
                            min="0.5" max="2" step="0.1"
-                           class="form-control w-auto"
+                           class="form-control w-auto form-control-sm"
                            value="{{ line.speed }}"
                            onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }">
                   </div>
@@ -168,9 +213,9 @@
               </div>
               <div class="mb-3 audio-container">
                 {% if line.audio_file %}
-                  <audio controls class="w-100" src="{{ line.audio_file.url }}"></audio>
+                  <audio id="line_audio_{{ forloop.counter }}" controls class="w-100" src="{{ line.audio_file.url }}"></audio>
                 {% else %}
-                  <audio controls class="w-100"></audio>
+                  <audio id="line_audio_{{ forloop.counter }}" controls class="w-100"></audio>
                 {% endif %}
               </div>
               <div class="d-flex justify-content-end">
@@ -194,335 +239,463 @@
     </div>
   </form>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const ttsProxyUrl = "{% url 'tts_proxy' %}";
-  const splitButton = document.getElementById('split-button');
-  const generateButton = document.getElementById('generate-button');
-  if (splitButton) splitButton.addEventListener('click', function() {
-    const container = document.getElementById('steps-container');
-    container.innerHTML = '';
-    const contentField = document.getElementById('id_contents');
-    const text = contentField.value;
-    const segments = text.split(/[\n\.]+/).filter(s => s.trim());
-    segments.forEach((seg, idx) => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'row mb-2 align-items-start';
-      const colText = document.createElement('div');
-      colText.className = 'col-md-6';
-      const colAudio = document.createElement('div');
-      colAudio.className = 'col-md-6 audio-container';
-      const ta = document.createElement('textarea');
-      ta.name = 'step_' + (idx + 1);
-      ta.className = 'form-control';
-      ta.rows = 3;
-      ta.value = seg.trim();
-      colText.appendChild(ta);
-      wrapper.appendChild(colText);
-      wrapper.appendChild(colAudio);
-      const colActions = document.createElement('div');
-      colActions.className = 'col-md-12 text-end mb-2';
-      const segButton = document.createElement('button');
-      segButton.type = 'button';
-      segButton.className = 'btn btn-sm btn-secondary me-2';
-      segButton.textContent = '생성하기';
-      colActions.appendChild(segButton);
-      wrapper.appendChild(colActions);
-      segButton.addEventListener('click', async function() {
-        const text = ta.value.trim();
+  document.addEventListener('DOMContentLoaded', function() {
+    const ttsUrl = "{% url 'tts_proxy' %}";
+    // Handle preview buttons
+    document.querySelectorAll('.regenerate').forEach(button => {
+      button.addEventListener('click', async function() {
+        const card = button.closest('.card');
+        // gather parameters
+        const text = card.querySelector('textarea').value.trim();
+        // Line-specific voice and style selects
+        const voiceSelect = card.querySelector('select[name^="voice_id_"]');
+        // Derive the index from the select's name, e.g., 'voice_id_3' -> '3'
+        const idx = voiceSelect ? voiceSelect.name.split('_')[2] : '';
+        const styleSelect = (idx !== '')
+          ? card.querySelector(`select[name="style_${idx}"]`)
+          : null;
+        const voice = voiceSelect ? voiceSelect.value : '';
+        const style = styleSelect ? styleSelect.value : '';
+        // Use prefix-matching selectors for numbered line inputs
+        const psInput = card.querySelector('input[name^="pitch_shift_"]');
+        const pitch_shift = psInput ? psInput.value : '';
+        const pvInput = card.querySelector('input[name^="pitch_variance_"]');
+        const pitch_variance = pvInput ? pvInput.value : '';
+        const spInput = card.querySelector('input[name^="speed_"]');
+        const speed = spInput ? spInput.value : '';
         if (!text) return;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         try {
-          const response = await fetch(ttsProxyUrl, {
+          const response = await fetch(ttsUrl, {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
-              voice_id: voiceId,
-              text,
-              language: 'ko',
-              style: 'neutral',
-              model: 'sona_speech_1'
+              voice_id: voice,
+              text: text,
+              style: style,
+              language: '{{ form.language.value|default:"ko" }}',
+              model: '{{ form.model.value|default:"sona_speech_1" }}',
+              pitch_shift: pitch_shift,
+              pitch_variance: pitch_variance,
+              speed: speed,
+              line_id: button.getAttribute('data-line-id')
             })
           });
           if (!response.ok) throw new Error('TTS error: '+response.statusText);
           const blob = await response.blob();
-          const audio = document.createElement('audio');
-          audio.controls = true;
-          audio.src = URL.createObjectURL(blob);
-          const audioContainer = wrapper.querySelector('.audio-container');
-          audioContainer.innerHTML = '';
-          audioContainer.appendChild(audio);
+          // Determine index from voice select name
+          const idx = voiceSelect ? voiceSelect.name.split('_')[2] : '';
+          // Play on the corresponding line audio element within this card
+          // const audio = document.getElementById(`line_audio_${idx}`);
+          const audio = card.querySelector(`#line_audio_${idx}`);
+          if (audio) {
+            // If you want to also remove the pause-other-audios logic, comment out the next block:
+            // document.querySelectorAll('audio').forEach(a => {
+            //   if (a !== audio) {
+            //     a.pause();
+            //   }
+            // });
+            audio.src = URL.createObjectURL(blob);
+            // Update download button to point to the new audio and show it
+            const downloadBtn = card.querySelector('.download-btn');
+            if (downloadBtn) {
+              downloadBtn.href = audio.src;
+              downloadBtn.style.display = 'inline-block';
+            }
+//            audio.play();  // Auto-play disabled on save
+          }
         } catch (err) {
           console.error(err);
-        }
-      });
-      container.appendChild(wrapper);
-    });
-    if (segments.length > 0) {
-      generateButton.style.display = 'inline-block';
-    }
-  });
-  if (generateButton) generateButton.addEventListener('click', async function() {
-    generateButton.disabled = true;
-    const container = document.getElementById('steps-container');
-    const textareas = container.querySelectorAll('textarea[name^="step_"]');
-    for (const ta of textareas) {
-      const text = ta.value.trim();
-      if (!text) continue;
-      try {
-        const wrapper = ta.closest('.card') || ta.closest('[data-line-id]');
-        const style = wrapper.querySelector('select[name^="style_"]').value;
-        const pitchShift = wrapper.querySelector('input[name^="pitch_shift_"]').value;
-        const pitchVariance = wrapper.querySelector('input[name^="pitch_variance_"]').value;
-        const speedVal = wrapper.querySelector('input[name^="speed_"]').value;
-        const response = await fetch(ttsProxyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            voice_id: voiceId,
-            text,
-            language: 'ko',
-            style: style,
-            model: 'sona_speech_1',
-            pitch_shift: pitchShift,
-            pitch_variance: pitchVariance,
-            speed: speedVal
-          })
-        });
-        if (!response.ok) throw new Error('TTS error: ' + response.statusText);
-        const blob = await response.blob();
-        const audio = document.createElement('audio');
-        audio.controls = true;
-        audio.src = URL.createObjectURL(blob);
-        const audioContainer = wrapper.querySelector('.audio-container');
-        audioContainer.appendChild(audio);
-
-            // Show temporary success alert for bulk generation
-            const lineHeader = wrapper.querySelector('h6').textContent;
-            const msgContainer = document.getElementById('message-container');
-            const successAlert = document.createElement('div');
-            successAlert.className = 'alert alert-success fade show';
-            successAlert.role = 'alert';
-            successAlert.textContent = `${lineHeader} 음성이 생성되었습니다`;
-            msgContainer.appendChild(successAlert);
-            setTimeout(() => {
-              successAlert.classList.remove('show');
-              setTimeout(() => successAlert.remove(), 200);
-            }, 3000);
-
-            // Show download button and set href
-            const downloadBtn = wrapper.querySelector('.download-btn');
-            if (downloadBtn) {
-              downloadBtn.href = URL.createObjectURL(blob);
-              downloadBtn.style.display = 'inline-block';
-            }
-
-      } catch (err) {
-        console.error(err);
-        let alertEl = document.querySelector('#tts-error-alert');
-        if (!alertEl) {
-          alertEl = document.createElement('div');
-          alertEl.id = 'tts-error-alert';
-          alertEl.className = 'alert alert-danger';
-          document.querySelector('.container').prepend(alertEl);
-        }
-        alertEl.textContent = 'TTS 생성 중 오류가 발생했습니다: ' + (err.message || '알 수 없는 오류');
-      }
-    }
-  });
-
-  // Attach regenerate handlers
-  document.querySelectorAll('.regenerate').forEach(button => {
-    button.addEventListener('click', async function() {
-      const btn = this;
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      // show spinner
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>생성중...';
-      const lineId = btn.dataset.lineId;
-      const wrapper = document.querySelector(`.card[data-line-id="${lineId}"]`);
-      const textarea = wrapper.querySelector('textarea');
-      const select = wrapper.querySelector('select[name^="voice_id_"]');
-      const text = textarea.value.trim();
-      const voice_id = select.value;
-      if (!text) {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-        return;
-      }
-      try {
-        const style = wrapper.querySelector('select[name^="style_"]').value;
-        const pitchShift = wrapper.querySelector('input[name^="pitch_shift_"]').value;
-        const pitchVariance = wrapper.querySelector('input[name^="pitch_variance_"]').value;
-        const speedVal = wrapper.querySelector('input[name^="speed_"]').value;
-        const response = await fetch(ttsProxyUrl, {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            line_id: lineId,
-            voice_id: voice_id,
-            text: text,
-            language: 'ko',
-            style: style,
-            model: 'sona_speech_1',
-            pitch_shift: pitchShift,
-            pitch_variance: pitchVariance,
-            speed: speedVal
-          })
-        });
-        if (!response.ok) throw new Error('TTS error: '+response.statusText);
-        const blob = await response.blob();
-        const audioContainer = wrapper.querySelector('.audio-container');
-        audioContainer.innerHTML = '';
-        const audio = document.createElement('audio');
-        audio.controls = true;
-        audio.className = 'w-100';
-        audio.src = URL.createObjectURL(blob);
-        audioContainer.appendChild(audio);
-
-            // Show temporary success alert
-            const lineHeader = wrapper.querySelector('h6').textContent;
-            const msgContainer = document.getElementById('message-container');
-            const successAlert = document.createElement('div');
-            successAlert.className = 'alert alert-success fade show';
-            successAlert.role = 'alert';
-            successAlert.textContent = `${lineHeader} 음성이 생성되었습니다`;
-            msgContainer.appendChild(successAlert);
-            // Auto-dismiss after 3 seconds
-            setTimeout(() => {
-              successAlert.classList.remove('show');
-              setTimeout(() => successAlert.remove(), 200);
-            }, 3000);
-
-            // Show download button and set href
-            const downloadBtn = wrapper.querySelector('.download-btn');
-            if (downloadBtn) {
-              downloadBtn.href = URL.createObjectURL(blob);
-              downloadBtn.style.display = 'inline-block';
-            }
-
-      } catch (err) {
-        console.error(err);
-        const errorContainer = wrapper.querySelector('.audio-container');
-        // Remove any existing error message
-        let errorMsg = errorContainer.querySelector('.tts-error-message');
-        if (!errorMsg) {
-          errorMsg = document.createElement('div');
-          errorMsg.className = 'tts-error-message alert alert-danger';
-          errorContainer.appendChild(errorMsg);
-        }
-        // Set and update the text
-        errorMsg.textContent = '오류 발생: ' + (err.message || '알 수 없는 오류');
-        // Flash background then fade to transparent
-        errorMsg.style.transition = 'background-color 0.5s ease-out';
-        setTimeout(() => {
-          errorMsg.style.backgroundColor = 'transparent';
-        }, 2000);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-      }
-    });
-  });
-
-  // Bulk "전체 새로만들기" - regenerate all lines
-  const regenAllBtn = document.getElementById('regenerate-all');
-  if (regenAllBtn) {
-    regenAllBtn.addEventListener('click', function() {
-      document.querySelectorAll('.regenerate').forEach(btn => btn.click());
-    });
-  }
-
-  // Bulk "음성 없는 것만 새로만들기" - regenerate only missing audio
-  const regenMissingBtn = document.getElementById('regenerate-missing');
-  if (regenMissingBtn) {
-    regenMissingBtn.addEventListener('click', function() {
-      document.querySelectorAll('.card[data-line-id]').forEach(wrapper => {
-        const audioEl = wrapper.querySelector('.audio-container audio');
-        // If no src or empty src, trigger regenerate
-        if (!audioEl || !audioEl.src) {
-          const btn = wrapper.querySelector('.regenerate');
-          if (btn) btn.click();
+          alert('음성 생성에 실패했습니다.');
+        } finally {
+          button.disabled = false;
+          button.innerHTML = '<i class="fas fa-sync-alt"></i> 저장 및 음성생성';
+          // Signal this line's regeneration completed
+          button.dispatchEvent(new Event('regenComplete'));
         }
       });
     });
-  }
 
-  // 자동으로 로딩 시 음성 없는 것만 새로만들기 실행 (딜레이 후)
-  if (regenMissingBtn) {
-    // 페이지 로드 후 스타일 셀렉트가 모두 세팅된 다음에 실행
-    setTimeout(function() {
-      regenMissingBtn.click();
-    }, 100);
-  }
+    // 전체 새로만들기 버튼 기능 (parallelized version)
+    const regenAllBtn = document.getElementById('regenerate-all');
+    if (regenAllBtn) {
+      regenAllBtn.addEventListener('click', () => {
+        // Find all voice selects
+        const selects = Array.from(document.querySelectorAll('select[name^="voice_id_"]'));
+        const total = selects.length;
 
-  // TTS preview in update view
-  const previewBtn = document.getElementById('preview-button');
-  if (previewBtn) {
-    const previewUrl = "{% url 'tts_proxy_preview' %}";
-    previewBtn.addEventListener('click', async function() {
-      const textEl = document.getElementById('preview-text');
-      const audioEl = document.getElementById('preview-audio');
-      if (!textEl || !audioEl) return;
-      const text = textEl.value.trim();
-      if (!text) return;
-      previewBtn.disabled = true;
-      previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-      try {
-        const voice = document.querySelector('select[name="voice"]').value;
-        const style = document.querySelector('select[name="style"]').value;
-        const pitch_shift = document.querySelector('input[name="pitch_shift"]').value;
-        const pitch_variance = document.querySelector('input[name="pitch_variance"]').value;
-        const speed = document.querySelector('input[name="speed"]').value;
-        const response = await fetch(previewUrl, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            voice_id: voice,
-            text: text,
-            language: '{{ form.instance.language|default:"ko" }}',
-            style: style,
-            model: '{{ form.instance.model|default:"sona_speech_1" }}',
-            pitch_shift: pitch_shift,
-            pitch_variance: pitch_variance,
-            speed: speed
-          })
+        // Build an array of regeneration promises
+        const promises = selects.map(select => {
+          const idx = select.name.split('_')[2];
+          const card = select.closest('.card[data-line-id]');
+          const btn  = card.querySelector('.regenerate');
+          return new Promise(resolve => {
+            btn.addEventListener('regenComplete', () => {
+              // Per-line toast
+              const toast = document.createElement('div');
+              toast.className = 'toast align-items-center text-white bg-primary border-0 mb-2';
+              toast.role      = 'alert';
+              toast.innerHTML = `
+                <div class="d-flex">
+                  <div class="toast-body">${idx}번 라인 생성 완료</div>
+                  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>`;
+              document.getElementById('batch-progress').appendChild(toast);
+              new bootstrap.Toast(toast, { delay: 3000 }).show();
+              resolve(idx);
+            }, { once: true });
+            btn.click();
+          });
         });
-        if (!response.ok) throw new Error('TTS error: ' + response.statusText);
-        const blob = await response.blob();
-        audioEl.src = URL.createObjectURL(blob);
-        audioEl.play();
-      } catch (err) {
-        console.error(err);
-        alert('음성 미리듣기에 실패했습니다: ' + (err.message || '알 수 없는 오류'));
-      } finally {
-        previewBtn.disabled = false;
-        previewBtn.innerHTML = '<i class="fas fa-play"></i> 미리듣기';
+
+        // When all done, show final toast
+        Promise.all(promises).then(results => {
+          const finalToast = document.createElement('div');
+          finalToast.className = 'toast align-items-center text-white bg-success border-0 mb-2';
+          finalToast.role      = 'alert';
+          finalToast.innerHTML = `
+            <div class="d-flex">
+              <div class="toast-body">전체 라인 음성 생성 완료! (${results.length}/${total})</div>
+              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>`;
+          document.getElementById('batch-progress').appendChild(finalToast);
+          new bootstrap.Toast(finalToast, { delay: 5000 }).show();
+        });
+      });
+    }
+
+    // 음성 없는 것만 새로만들기 버튼 기능
+    const regenMissingBtn = document.getElementById('regenerate-missing');
+    if (regenMissingBtn) {
+      regenMissingBtn.addEventListener('click', () => {
+        // Gather all cards and filter missing
+        const cards = Array.from(document.querySelectorAll('.card[data-line-id]'));
+        const missingCards = cards.filter(card => {
+          const audioEl = card.querySelector('audio');
+          return !audioEl.getAttribute('src');
+        });
+        const total = missingCards.length;
+        if (total === 0) {
+          return;
+        }
+        // Trigger all missing regenerations in parallel
+        const promises = missingCards.map(card => new Promise(async resolve => {
+          const lineId = card.getAttribute('data-line-id');
+          const btn = card.querySelector('.regenerate');
+          // Ensure line styles are loaded
+          const voiceSel = card.querySelector(`select[name="voice_id_${lineId}"]`);
+          if (voiceSel) voiceSel.dispatchEvent(new Event('change'));
+          // Listen for completion
+          btn.addEventListener('regenComplete', () => {
+            // After audio is regenerated, update download button
+            const audioEl = card.querySelector(`audio#line_audio_${lineId}`);
+            if (audioEl) {
+              // Update download button and make it visible
+              const downloadBtn = card.querySelector('.download-btn');
+              if (downloadBtn) {
+                // Set href to the new blob URL
+                downloadBtn.href = audioEl.src;
+                downloadBtn.style.display = 'inline-block';
+              }
+            }
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-white bg-primary border-0 mb-2';
+            toast.role = 'alert';
+            toast.innerHTML = `
+              <div class="d-flex">
+                <div class="toast-body">${lineId}번 라인 생성 완료 (${total}/${total})</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+              </div>`;
+            document.getElementById('batch-progress').appendChild(toast);
+            new bootstrap.Toast(toast, { delay: 3000 }).show();
+            resolve(lineId);
+          }, { once: true });
+          // Trigger regeneration
+          btn.click();
+        }));
+        // Final completion toast
+        Promise.all(promises).then(results => {
+          const finalToast = document.createElement('div');
+          finalToast.className = 'toast align-items-center text-white bg-success border-0 mb-2';
+          finalToast.role = 'alert';
+          finalToast.innerHTML = `
+            <div class="d-flex">
+              <div class="toast-body">음성 없는 라인 ${results.length}/${total} 생성 완료!</div>
+              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>`;
+          document.getElementById('batch-progress').appendChild(finalToast);
+          new bootstrap.Toast(finalToast, { delay: 5000 }).show();
+        });
+      });
+      // 페이지 로드 시 음성 없는 것만 자동 실행
+      if (regenMissingBtn) {
+      // 페이지 로드 시 음성 없는 것만 자동 실행 (150ms 지연)
+        setTimeout(() => regenMissingBtn.click(), 150);
       }
-    });
-  }
-  // Apply preview settings and text to all lines and regenerate
-  const applyBtn = document.getElementById('apply-preview');
-  if (applyBtn) {
-    applyBtn.addEventListener('click', function() {
-      // Propagate selected preview options to each line's controls
-      const previewVoice = document.querySelector('select[name="voice"]').value;
-      const previewStyle = document.querySelector('select[name="style"]').value;
-      const previewPitch = document.querySelector('input[name="pitch_shift"]').value;
-      const previewVariance = document.querySelector('input[name="pitch_variance"]').value;
-      const previewSpeed = document.querySelector('input[name="speed"]').value;
+    }
 
-      document.querySelectorAll('select[name^="voice_id_"]').forEach(el => el.value = previewVoice);
-      document.querySelectorAll('select[name^="style_"]').forEach(el => el.value = previewStyle);
-      document.querySelectorAll('input[name^="pitch_shift_"]').forEach(el => el.value = previewPitch);
-      document.querySelectorAll('input[name^="pitch_variance_"]').forEach(el => el.value = previewVariance);
-      document.querySelectorAll('input[name^="speed_"]').forEach(el => el.value = previewSpeed);
+    // 전체에 반영 버튼
+    document.querySelectorAll('.apply-preview-values').forEach(button => {
+      {% comment %} button.addEventListener('click', function() {
+        const card = button.closest('.card');
+        // 미리보기 영역 값 읽기
+        const voice = card.querySelector('select[name="voice"]').value;
+        const style = card.querySelector('select[name="style"]').value;
+        const pitch_shift = card.querySelector('input[name="pitch_shift"]').value;
+        const pitch_variance = card.querySelector('input[name="pitch_variance"]').value;
+        const speed = card.querySelector('input[name="speed"]').value;
 
-      // trigger regenerate on all lines
-      document.querySelectorAll('.regenerate').forEach(btn => btn.click());
+        // 폼의 실제 input/select에 값 반영
+        document.getElementById('id_voice').value = voice;
+        document.getElementById('id_style').value = style;
+        document.getElementById('id_pitch_shift').value = pitch_shift;
+        document.getElementById('id_pitch_variance').value = pitch_variance;
+        document.getElementById('id_speed').value = speed;
+
+        // select 값이 바뀌면 change 이벤트도 발생시켜야 스타일 등도 갱신됨
+        document.getElementById('id_voice').dispatchEvent(new Event('change'));
+        document.getElementById('id_style').dispatchEvent(new Event('change'));
+      }); {% endcomment %}
     });
+  });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---------- GLOBAL PREVIEW ---------- */
+  const previewUrl = "{% url 'tts_proxy_preview' %}";
+  const previewBtn   = document.getElementById('preview-button');
+  const previewText  = document.getElementById('preview-text');
+  const previewAudio = document.getElementById('sample_audio_hidden');
+  const voiceSelect  = document.getElementById('id_voice');
+  const styleSelect  = document.getElementById('id_style');
+  const psInput      = document.getElementById('id_pitch_shift');
+  const pvInput      = document.getElementById('id_pitch_variance');
+  const spInput      = document.getElementById('id_speed');
+
+  async function doPreview() {
+    const text = previewText.value.trim();
+    if (!text) return;
+    previewBtn.disabled = true;
+    previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+      const response = await fetch(previewUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voice_id: voiceSelect.value,
+          text,
+          style: styleSelect.value,
+          language: '{{ form.language.value|default:"ko" }}',
+          model:    '{{ form.model.value|default:"sona_speech_1" }}',
+          pitch_shift:    psInput.value,
+          pitch_variance: pvInput.value,
+          speed:          spInput.value,
+        }),
+      });
+      if (!response.ok) throw new Error('TTS preview error: ' + response.statusText);
+      const blob = await response.blob();
+      // Stop other audio, play preview
+      document.querySelectorAll('audio').forEach(a => a.pause());
+      previewAudio.src = URL.createObjectURL(blob);
+      previewAudio.play();
+    } catch (err) {
+      console.error(err);
+      alert('미리듣기에 실패했습니다.');
+    } finally {
+      previewBtn.disabled = false;
+      previewBtn.innerHTML = '<i class="fas fa-play"></i> 미리듣기';
+    }
   }
+
+  previewBtn.addEventListener('click', doPreview);
 });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const voiceSelect = document.getElementById('id_voice');
+    const styleSelect = document.getElementById('id_style');
+    function updateVoiceStyles() {
+      // Get the selected option's data-styles attribute
+      const opt = voiceSelect.options[voiceSelect.selectedIndex];
+      let raw = opt.getAttribute('data-styles') || '[]';
+      // Replace single quotes with double quotes for valid JSON
+      raw = raw.replace(/'/g, '"');
+      let styles;
+      try {
+        styles = JSON.parse(raw);
+      } catch (e) {
+        styles = [];
+      }
+      styleSelect.innerHTML = '';
+      // Update voice thumbnail
+      const thumbnailUrl = opt.getAttribute('thumbnail-image-url') || '';
+      const thumbnailImg = document.getElementById('voice_thumbnail');
+      if (thumbnailImg) {
+        thumbnailImg.src = thumbnailUrl;
+        thumbnailImg.style.pointerEvents = 'auto';
+        // Play Korean sample on thumbnail click
+        thumbnailImg.style.cursor = 'pointer';
+        thumbnailImg.onclick = () => {
+          console.log('Thumbnail clicked, raw samples:', opt.getAttribute('data-samples'));
+          const samplesRaw = opt.getAttribute('data-samples') || '[]';
+          // Fix Python-style quotes to valid JSON
+          const fixedRaw = samplesRaw.replace(/'/g, '"');
+          let samples;
+          try {
+            samples = JSON.parse(fixedRaw);
+          } catch (err) {
+            console.error('Failed to parse samples JSON:', err, fixedRaw);
+            samples = [];
+          }
+          const koSample = samples.find(s => s.language === 'ko');
+          if (koSample) {
+            const sampleAudio = document.getElementById('sample_audio_hidden');
+            sampleAudio.src = koSample.url;
+            sampleAudio.play();
+          }
+        };
+      }
+      styles.forEach(function(name) {
+        const o = document.createElement('option');
+        o.value = name;
+        o.textContent = name;
+        styleSelect.appendChild(o);
+      });
+    }
+    voiceSelect.addEventListener('change', () => {
+      // Pause any playing sample audio when voice changes
+      const sampleAudio = document.getElementById('sample_audio_hidden');
+      if (sampleAudio && !sampleAudio.paused) {
+        sampleAudio.pause();
+        sampleAudio.currentTime = 0;
+      }
+      updateVoiceStyles();
+    });
+    updateVoiceStyles();  // initialize on load
+  });
+</script>
+{% include "supertone/voice_search_modal.html" %}
+<script>
+(function(){
+  const modalEl = document.getElementById('voiceSearchModal');
+  const form    = modalEl.querySelector('#voice-search-form');
+  const results = modalEl.querySelector('#voice-search-results');
+  const pager   = modalEl.querySelector('.pagination');
+  let   debounceTimer;
+  const audioHidden = document.getElementById('voiceModalSampleAudio');
+
+  // Remember which select opened the modal
+  document.querySelectorAll('button[data-bs-target="#voiceSearchModal"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-target-select') || 'voice';
+      modalEl.setAttribute('data-target-select', target);
+    });
+  });
+
+  async function doSearch() {
+    // Pause any playing audio before starting a new search
+    if (audioHidden && !audioHidden.paused) {
+      audioHidden.pause();
+      audioHidden.currentTime = 0;
+    }
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(async () => {
+      const params = new URLSearchParams(new FormData(form));
+      const resp   = await fetch("{% url 'voice_search' %}?" + params, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const html = await resp.text();
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+      results.innerHTML = doc.querySelector('#voice-search-results').innerHTML;
+      pager.innerHTML   = doc.querySelector('.pagination').innerHTML;
+      form.querySelector('input[name="q"]').focus();
+    }, 300);
+  }
+
+  // Real-time search by name
+  const nameInput = form.querySelector('input[name="q"]');
+  nameInput.addEventListener('input', doSearch);
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      doSearch();
+    }
+  });
+
+  // Real-time filters: gender, style, user_case
+  ['gender','style','user_case', 'age'].forEach(field => {
+    const sel = form.querySelector(`select[name="${field}"]`);
+    if (sel) sel.addEventListener('change', doSearch);
+  });
+
+  // Pagination links
+  modalEl.addEventListener('click', e => {
+    const a = e.target.closest('.pagination a.page-link');
+    if (!a) return;
+    // Pause audio when changing page
+    if (audioHidden && !audioHidden.paused) {
+      audioHidden.pause();
+      audioHidden.currentTime = 0;
+    }
+    e.preventDefault();
+    fetch("{% url 'voice_search' %}" + a.getAttribute('href'), {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.text())
+    .then(html => {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      results.innerHTML = doc.querySelector('#voice-search-results').innerHTML;
+      pager.innerHTML   = doc.querySelector('.pagination').innerHTML;
+    });
+  });
+
+  // Delegate preview and select
+  modalEl.addEventListener('click', e => {
+    if (e.target.matches('.preview-btn')) {
+      e.preventDefault();
+      const audio = document.getElementById('voiceModalSampleAudio');
+      let raw = e.target.getAttribute('data-samples') || '[]';
+      raw = raw.replace(/&quot;/g, '"').replace(/'/g, '"');
+      let samples = [];
+      try { samples = JSON.parse(raw); } catch {}
+      const ko = samples.find(s => s.language === 'ko');
+      if (ko) { audio.src = ko.url; audio.play(); }
+      return;
+    }
+    if (e.target.matches('.voice-select-btn')) {
+      e.preventDefault();
+      // Pause audio when selecting a voice
+      if (audioHidden && !audioHidden.paused) {
+        audioHidden.pause();
+        audioHidden.currentTime = 0;
+      }
+      const voiceId = e.target.dataset.voiceId;
+      // Determine which select to update
+      const targetName = modalEl.getAttribute('data-target-select') || 'voice';
+      const selector = targetName === 'voice'
+        ? document.getElementById('id_voice')
+        : document.querySelector(`select[name="${targetName}"]`);
+      if (selector) {
+        selector.value = voiceId;
+        selector.dispatchEvent(new Event('change'));
+      }
+      bootstrap.Modal.getInstance(modalEl).hide();
+    }
+  });
+
+  // Run initial load when modal opens
+  modalEl.addEventListener('shown.bs.modal', () => doSearch());
+
+  // Pause audio when modal is closed
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    if (audioHidden && !audioHidden.paused) {
+      audioHidden.pause();
+      audioHidden.currentTime = 0;
+    }
+  });
+})();
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -545,6 +718,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (s === current) o.selected = true;
         styleSelect.appendChild(o);
       });
+
+      // Update line-specific thumbnail and click-to-play
+      var thumbnailImg = document.getElementById('line_thumbnail_' + idx);
+      var thumbnailUrl = opt.getAttribute('thumbnail-image-url') || '';
+      if (thumbnailImg) {
+        thumbnailImg.src = thumbnailUrl;
+        thumbnailImg.style.display = thumbnailUrl ? 'inline-block' : 'none';
+        thumbnailImg.onclick = function() {
+          var raw = opt.getAttribute('data-samples') || '[]';
+          var fixed = raw.replace(/'/g, '"');
+          var samples = [];
+          try { samples = JSON.parse(fixed); } catch (e) {}
+          var ko = samples.find(function(s) { return s.language === 'ko'; });
+          if (ko) {
+            // Pause all other audio elements
+            document.querySelectorAll('audio').forEach(a => a.pause());
+            // Play via hidden preview audio
+            var audio = document.getElementById('sample_audio_hidden');
+            if (audio) {
+              audio.src = ko.url;
+              audio.play();
+            }
+          }
+        };
+      }
     }
     select.addEventListener('change', updateStyles);
     updateStyles();
@@ -566,37 +764,77 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Declare initialStyle before updateVoiceStyles
-    const initialStyle = "{{ form.style.value|escapejs }}";
-    const voiceSelect = document.getElementById('id_voice');
-    const styleSelect = document.getElementById('id_style');
-    function updateVoiceStyles() {
-      // Get the selected option's data-styles attribute
-      const opt = voiceSelect.options[voiceSelect.selectedIndex];
-      let raw = opt.getAttribute('data-styles') || '[]';
-      // Replace single quotes with double quotes for valid JSON
-      raw = raw.replace(/'/g, '"');
-      let styles;
-      try {
-        styles = JSON.parse(raw);
-      } catch (e) {
-        styles = [];
-      }
-      styleSelect.innerHTML = '';
-      styles.forEach(function(name) {
-        const o = document.createElement('option');
-        o.value = name;
-        o.textContent = name;
-        if (name === initialStyle) {
-          o.selected = true;
-        }
-        styleSelect.appendChild(o);
+  const applyBtn = document.getElementById('apply-preview');
+  if (!applyBtn) return;
+  applyBtn.addEventListener('click', function() {
+    // 1) Gather preview settings
+    const previewVoice  = document.getElementById('id_voice').value;
+    const previewStyle  = document.getElementById('id_style').value;
+    const previewPS     = document.getElementById('id_pitch_shift').value;
+    const previewPV     = document.getElementById('id_pitch_variance').value;
+    const previewSpeed  = document.getElementById('id_speed').value;
+
+    // 2) Locate all line cards
+    const cards = Array.from(document.querySelectorAll('select[name^="voice_id_"]'));
+    const total = cards.length;
+
+    // 3) Prepare an array of regeneration promises
+    const regenPromises = cards.map(select => {
+      const idx = select.name.split('_')[2];
+      const card = select.closest('.card[data-line-id]');
+      // Apply preview settings to each field
+      const vField = select;
+      const sField = card.querySelector(`select[name="style_${idx}"]`);
+      const psField = card.querySelector(`input[name="pitch_shift_${idx}"]`);
+      const pvField = card.querySelector(`input[name="pitch_variance_${idx}"]`);
+      const spField = card.querySelector(`input[name="speed_${idx}"]`);
+      if (vField) { vField.value = previewVoice; vField.dispatchEvent(new Event('change')); }
+      if (sField) { sField.value = previewStyle; sField.dispatchEvent(new Event('change')); }
+      if (psField) psField.value = previewPS;
+      if (pvField) pvField.value = previewPV;
+      if (spField) spField.value = previewSpeed;
+
+      // Return a promise that resolves on regenComplete
+      return new Promise(resolve => {
+        const btn = card.querySelector('.regenerate');
+        btn.addEventListener('regenComplete', () => {
+          // Show toast per line
+          const toast = document.createElement('div');
+          toast.className = 'toast align-items-center text-white bg-primary border-0 mb-2';
+          toast.role = 'alert';
+          toast.innerHTML = `
+            <div class="d-flex">
+              <div class="toast-body">
+                ${idx}번 라인 생성 완료
+              </div>
+              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>`;
+          document.getElementById('batch-progress').appendChild(toast);
+          new bootstrap.Toast(toast, { delay: 3000 }).show();
+          resolve(idx);
+        }, { once: true });
+        // Trigger regeneration
+        btn.click();
       });
-    }
-    voiceSelect.addEventListener('change', updateVoiceStyles);
-    updateVoiceStyles();  // initialize on load
+    });
+
+    // 4) When all lines are done, show a final toast
+    Promise.all(regenPromises).then(() => {
+      const finalToast = document.createElement('div');
+      finalToast.className = 'toast align-items-center text-white bg-success border-0 mb-2';
+      finalToast.role = 'alert';
+      finalToast.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">전체 라인 음성 생성 완료! (${total}/${total})</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>`;
+      document.getElementById('batch-progress').appendChild(finalToast);
+      new bootstrap.Toast(finalToast, { delay: 5000 }).show();
+    });
   });
+});
 </script>
 {% endblock %}

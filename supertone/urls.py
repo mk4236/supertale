@@ -29,4 +29,5 @@ urlpatterns = [
         views.download_zip,
         name="supertone_download_zip",
     ),
+    path("voice-search/", views.voice_search, name="voice_search"),
 ]

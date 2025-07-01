@@ -11,6 +11,17 @@ class LanguageType(models.TextChoices):
     JP = "jp", "Japanese"
 
 
+class UseCase(models.TextChoices):
+    NARRATION = "narration", "나레이션"
+    ADVERTISEMENT = "advertisement", "광고"
+    EDUCATION = "education", "교육"
+    AUDIOBOOK = "audiobook", "오디오북"
+    DOCUMENTARY = "documentary", "다큐멘터리"
+    GAME = "game", "게임"
+    MEME = "meme", "밈"
+    ANNOUNCEMENT = "announcement", "아나운서 톤"
+
+
 class ModelType(models.TextChoices):
     """
     Enumeration of supported model codes.

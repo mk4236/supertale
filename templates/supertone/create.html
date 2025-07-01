@@ -17,16 +17,24 @@
       <div class="card-body">
         <div class="row mb-2 align-items-center">
           <div class="col d-flex flex-wrap gap-2">
+            <div class="mb-0 me-2 col-auto">
+              <img id="voice_thumbnail" src="" alt="Voice Thumbnail" style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
+            </div>
 
             <div class="mb-0 me-2 col-auto">
               <label for="id_voice" class="form-label small">음성</label>
-              <select name="voice" id="id_voice" class="form-select form-select-sm w-auto">
-                {% for voice in voice_list %}
-                  <option value="{{ voice.voice_id }}" data-styles="{{ voice.styles }}" {% if voice.voice_id == form.voice.value %}selected{% endif %}>
-                    {{ voice.name }}
-                  </option>
-                {% endfor %}
-              </select>
+              <div class="input-group input-group-sm">
+                <select name="voice" id="id_voice" class="form-select">
+                  {% for voice in voice_list %}
+                    <option value="{{ voice.voice_id }}" data-styles="{{ voice.styles }}" thumbnail-image-url="{{voice.thumbnail_image_url}}" data-samples='{{ voice.samples }}' {% if voice.voice_id == form.voice.value %}selected{% endif %}>
+                      {{ voice.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#voiceSearchModal">
+                  상세검색
+                </button>
+              </div>
             </div>
 
             <div class="mb-0 me-2 col-auto">
@@ -89,9 +97,11 @@
         </div>
         <div class="mb-3 audio-container">
           {% if line.audio_file %}
-            <audio controls class="w-100" src="{{ line.audio_file.url }}"></audio>
+            <audio id="sample_audio_visible" controls class="w-100" src="{{ line.audio_file.url }}"></audio>
+            <audio id="sample_audio_hidden" style="display:none;"></audio>
           {% else %}
-            <audio controls class="w-100"></audio>
+            <audio id="sample_audio_visible" controls class="w-100"></audio>
+            <audio id="sample_audio_hidden" style="display:none;"></audio>
           {% endif %}
         </div>
         <div class="d-flex justify-content-end">
@@ -148,7 +158,7 @@
           });
           if (!response.ok) throw new Error('TTS error: '+response.statusText);
           const blob = await response.blob();
-          const audio = card.querySelector('audio');
+          const audio = card.querySelector('#sample_audio_visible');
           audio.src = URL.createObjectURL(blob);
           audio.play();
         } catch (err) {
@@ -179,6 +189,34 @@
         styles = [];
       }
       styleSelect.innerHTML = '';
+      // Update voice thumbnail
+      const thumbnailUrl = opt.getAttribute('thumbnail-image-url') || '';
+      const thumbnailImg = document.getElementById('voice_thumbnail');
+      if (thumbnailImg) {
+        thumbnailImg.src = thumbnailUrl;
+        thumbnailImg.style.pointerEvents = 'auto';
+        // Play Korean sample on thumbnail click
+        thumbnailImg.style.cursor = 'pointer';
+        thumbnailImg.onclick = () => {
+          console.log('Thumbnail clicked, raw samples:', opt.getAttribute('data-samples'));
+          const samplesRaw = opt.getAttribute('data-samples') || '[]';
+          // Fix Python-style quotes to valid JSON
+          const fixedRaw = samplesRaw.replace(/'/g, '"');
+          let samples;
+          try {
+            samples = JSON.parse(fixedRaw);
+          } catch (err) {
+            console.error('Failed to parse samples JSON:', err, fixedRaw);
+            samples = [];
+          }
+          const koSample = samples.find(s => s.language === 'ko');
+          if (koSample) {
+            const sampleAudio = document.getElementById('sample_audio_hidden');
+            sampleAudio.src = koSample.url;
+            sampleAudio.play();
+          }
+        };
+      }
       styles.forEach(function(name) {
         const o = document.createElement('option');
         o.value = name;
@@ -186,8 +224,124 @@
         styleSelect.appendChild(o);
       });
     }
-    voiceSelect.addEventListener('change', updateVoiceStyles);
+    voiceSelect.addEventListener('change', () => {
+      // Pause any playing sample audio when voice changes
+      const sampleAudio = document.getElementById('sample_audio_hidden');
+      if (sampleAudio && !sampleAudio.paused) {
+        sampleAudio.pause();
+        sampleAudio.currentTime = 0;
+      }
+      updateVoiceStyles();
+    });
     updateVoiceStyles();  // initialize on load
   });
+</script>
+{% include "supertone/voice_search_modal.html" %}
+<script>
+(function(){
+  const modalEl = document.getElementById('voiceSearchModal');
+  const form    = modalEl.querySelector('#voice-search-form');
+  const results = modalEl.querySelector('#voice-search-results');
+  const pager   = modalEl.querySelector('.pagination');
+  let   debounceTimer;
+  const audioHidden = document.getElementById('voiceModalSampleAudio');
+
+  async function doSearch() {
+    // Pause any playing audio before starting a new search
+    if (audioHidden && !audioHidden.paused) {
+      audioHidden.pause();
+      audioHidden.currentTime = 0;
+    }
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(async () => {
+      const params = new URLSearchParams(new FormData(form));
+      const resp   = await fetch("{% url 'voice_search' %}?" + params, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const html = await resp.text();
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+      results.innerHTML = doc.querySelector('#voice-search-results').innerHTML;
+      pager.innerHTML   = doc.querySelector('.pagination').innerHTML;
+      form.querySelector('input[name="q"]').focus();
+    }, 300);
+  }
+
+  // Real-time search by name
+  const nameInput = form.querySelector('input[name="q"]');
+  nameInput.addEventListener('input', doSearch);
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      doSearch();
+    }
+  });
+
+  // Real-time filters: gender, style, user_case
+  ['gender','style','user_case', 'age'].forEach(field => {
+    const sel = form.querySelector(`select[name="${field}"]`);
+    if (sel) sel.addEventListener('change', doSearch);
+  });
+
+  // Pagination links
+  modalEl.addEventListener('click', e => {
+    const a = e.target.closest('.pagination a.page-link');
+    if (!a) return;
+    // Pause audio when changing page
+    if (audioHidden && !audioHidden.paused) {
+      audioHidden.pause();
+      audioHidden.currentTime = 0;
+    }
+    e.preventDefault();
+    fetch("{% url 'voice_search' %}" + a.getAttribute('href'), {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.text())
+    .then(html => {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      results.innerHTML = doc.querySelector('#voice-search-results').innerHTML;
+      pager.innerHTML   = doc.querySelector('.pagination').innerHTML;
+    });
+  });
+
+  // Delegate preview and select
+  modalEl.addEventListener('click', e => {
+    if (e.target.matches('.preview-btn')) {
+      e.preventDefault();
+      const audio = document.getElementById('voiceModalSampleAudio');
+      let raw = e.target.getAttribute('data-samples') || '[]';
+      raw = raw.replace(/&quot;/g, '"').replace(/'/g, '"');
+      let samples = [];
+      try { samples = JSON.parse(raw); } catch {}
+      const ko = samples.find(s => s.language === 'ko');
+      if (ko) { audio.src = ko.url; audio.play(); }
+      return;
+    }
+    if (e.target.matches('.voice-select-btn')) {
+      e.preventDefault();
+      // Pause audio when selecting a voice
+      if (audioHidden && !audioHidden.paused) {
+        audioHidden.pause();
+        audioHidden.currentTime = 0;
+      }
+      const voiceId = e.target.dataset.voiceId;
+      const mainSelect = document.getElementById('id_voice');
+      mainSelect.value = voiceId;
+      mainSelect.dispatchEvent(new Event('change'));
+      bootstrap.Modal.getInstance(modalEl).hide();
+    }
+  });
+
+  // Run initial load when modal opens
+  modalEl.addEventListener('shown.bs.modal', () => doSearch());
+
+  // Pause audio when modal is closed
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    if (audioHidden && !audioHidden.paused) {
+      audioHidden.pause();
+      audioHidden.currentTime = 0;
+    }
+  });
+})();
 </script>
 {% endblock %}

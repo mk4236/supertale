@@ -63,21 +63,27 @@ class Command(BaseCommand):
 
             vid = item.get("voice_id")
             name = item.get("name")
+            age = item.get("age")
             styles = item.get("styles", [])
             gender = item.get("gender")
             user_case = item.get("use_case")  # API 의 use_case → 모델의 user_case
             samples = item.get("samples", [])
+            thumbnail_image_url = item.get("thumbnail_image_url", "")
+            description = item.get("description", "")
             models_ = item.get("models", [])
 
             obj, is_created = Voice.objects.update_or_create(
                 voice_id=vid,
                 defaults={
                     "name": name,
+                    "age": age,
                     "styles": styles,
                     "gender": gender,
                     "user_case": user_case,
                     "samples": samples,
                     "models": models_,
+                    "thumbnail_image_url": thumbnail_image_url,
+                    "description": description,
                 },
             )
             if is_created:

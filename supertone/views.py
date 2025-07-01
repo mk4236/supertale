@@ -10,12 +10,18 @@ import httpx
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
-from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
+from django.http import (
+    HttpResponse,
+    JsonResponse,
+    StreamingHttpResponse,
+    HttpResponseNotAllowed,
+)
 from django.shortcuts import render
 from django.urls import reverse_lazy, reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.core.paginator import Paginator
 
 from django.core.files.base import ContentFile
 from django.utils import timezone
@@ -24,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 from supertone.forms import SuperToneCreateForm, SuperToneUpdateForm
 
-from supertone.choices import LanguageType, ModelType, VoiceStyleType
+from supertone.choices import LanguageType, ModelType, UseCase, VoiceStyleType
 from .models import SuperTone, Voice
 from .models import SuperToneLine
 
@@ -152,6 +158,14 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
         # 전체 Voice 객체를 템플릿에 넘겨줍니다
         ctx["voice_list"] = Voice.objects.all()
         ctx["voice_styles"] = VoiceStyleType.choices
+        ctx["user_cases"] = UseCase.choices
+        from django.core.paginator import Paginator
+
+        # Initial modal voices listing (all voices, first page)
+        paginator = Paginator(ctx["voice_list"], 10)
+        ctx["voices"] = paginator.get_page(1)
+        ctx["q"] = ""
+        ctx["style"] = ""
         return ctx
 
 
@@ -176,7 +190,20 @@ class SuperToneUpdateView(LoginRequiredMixin, UpdateView):
         ctx = super().get_context_data(**kwargs)
         # 전체 Voice 객체를 템플릿에 넘겨줍니다
         ctx["voice_list"] = Voice.objects.all()
+
+        # 스타일 및 사용처 선택을 위한 컨텍스트
         ctx["voice_styles"] = VoiceStyleType.choices
+        ctx["user_cases"] = UseCase.choices
+
+        # 모달 초기 표시용 검색 필터
+        from django.core.paginator import Paginator
+
+        paginator = Paginator(ctx["voice_list"], 10)
+        ctx["voices"] = paginator.get_page(1)
+        ctx["q"] = ""
+        ctx["style"] = ""
+        ctx["gender"] = ""
+        ctx["user_case"] = ""
         return ctx
 
 
@@ -265,10 +292,14 @@ def tts_proxy(request):
                 line.language = language
                 line.model = model
                 line.text = text
+                line.pitch_shift = pitch_shift
+                line.pitch_variance = pitch_variance
+                line.speed = speed
                 line.save()
                 # Save audio content to the line’s audio_file field
                 timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
-                filename = f"{timestamp}_{line_id}.wav"
+                # Save with line_id first, then timestamp
+                filename = f"{line_id}_{timestamp}.wav"
                 line.audio_file.save(filename, ContentFile(response.content), save=True)
                 file_saved = True
             except SuperToneLine.DoesNotExist:
@@ -368,3 +399,47 @@ def tts_proxy_preview(request):
         resp = JsonResponse({"error": "서버 내부 오류", "detail": str(exc)}, status=500)
         resp["Access-Control-Allow-Origin"] = "*"
         return resp
+
+
+# --- Voice search view for AJAX/modal with filters and pagination ---
+def voice_search(request):
+    """
+    AJAX/Modal voice search with filters and pagination.
+    """
+    q = request.GET.get("q", "")
+    style = request.GET.get("style", "")
+    gender = request.GET.get("gender", "")
+    age = request.GET.get("age", "")
+    user_case = request.GET.get("user_case", "")
+    page_number = request.GET.get("page", 1)
+
+    # Base queryset of all voices
+    qs = Voice.objects.all()
+    if q:
+        qs = qs.filter(name__icontains=q)
+    if style:
+        # Assuming 'styles' is a JSONField containing a list of style keys
+        qs = qs.filter(styles__contains=[style])
+    if gender:
+        qs = qs.filter(gender=gender)
+    if user_case:
+        qs = qs.filter(user_case=user_case)
+    if age:
+        qs = qs.filter(age=age)
+
+    paginator = Paginator(qs, 10)  # 10 items per page
+    voices = paginator.get_page(page_number)
+
+    return render(
+        request,
+        "supertone/voice_search_modal.html",
+        {
+            "voices": voices,
+            "q": q,
+            "style": style,
+            "user_case": user_case,
+            "gender": gender,
+            "voice_styles": VoiceStyleType.choices,
+            "user_cases": UseCase.choices,
+        },
+    )
