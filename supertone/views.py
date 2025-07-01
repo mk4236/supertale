@@ -122,8 +122,8 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
         form.instance.updated_by = self.request.user
         response = super().form_valid(form)
         content = form.cleaned_data.get("contents", "")
-        # Split but keep periods and question marks at end of segments, and split on newlines or quotes
-        raw_segments = re.split(r'(?<=[\.?])\s*|[\r\n"]+', content)
+        # Split on sentence terminators or line breaks or any quote characters including curly quotes
+        raw_segments = re.split(r'(?<=[\.?!])\s*|[\r\n"“”]+', content)
         # Extract TTS parameters for each line
         voice = form.cleaned_data.get("voice")
         style = form.cleaned_data.get("style")
@@ -134,8 +134,8 @@ class SuperToneCreateView(LoginRequiredMixin, CreateView):
         speed = form.cleaned_data.get("speed")
         for idx, seg in enumerate(raw_segments, start=1):
             text = seg.strip()
-            # Skip empty segments or segments containing only punctuation (., !, ?, ", ')
-            if not text or re.fullmatch(r'^[\.\!\?\'"]+$', text):
+            # Skip empty segments or segments containing only punctuation (including straight and curly quotes)
+            if not text or re.fullmatch(r'^[\.\!\?\'"“”]+$', text):
                 continue
             SuperToneLine.objects.create(
                 supertone=self.object,
