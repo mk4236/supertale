@@ -32,17 +32,22 @@
       <div>
         <a href="{% url 'supertone_list' %}" class="btn btn-secondary btn-sm">목록으로</a>
 
-        <button type="button" id="download-script" class="btn btn-sm btn-outline-secondary">
-          <i class="fas fa-file-alt"></i> 스크립트 다운로드.srt
-        </button>
+        
         <a href="{% url 'supertone_download_zip' form.instance.pk %}" class="btn btn-success  btn-sm">
-          <i class="fas fa-file-archive"></i> 오디오압축파일 다운로드.zip
+          <i class="fas fa-file-archive"></i> 오디오리스트.zip
         </a>
-        <a href="{% url 'supertone_merge_audio' form.instance.pk %}"
-          class="btn btn-success btn-sm">
-          <i class="fas fa-download"></i>
-          mp3 하나로 합쳐서 다운로드
-        </a>
+        
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" id="download-script" class="btn btn-outline-secondary">
+            <i class="fas fa-file-alt"></i> 스크립트.srt
+          </button>
+          <a href="{% url 'supertone_merge_audio' form.instance.pk %}"
+             download="{{ form.instance.title }}_{{ form.instance.pk }}_merged.mp3"
+             class="btn btn-success">
+            <i class="fas fa-download"></i>
+            MP3 합치기
+          </a>
+        </div>
       </div>
 
       <div class="d-flex justify-content-between">

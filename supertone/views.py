@@ -90,7 +90,7 @@ def merge_audio(request, pk):
 
     # 4) 응답 생성
     # 파일명을 "<제목>_<pk>_merged.mp3" 형태로 설정
-    title_slug = slugify(supertone.title)
+    title_slug = slugify(supertone.title, allow_unicode=True)
     filename = f"{title_slug}_{pk}_merged.mp3"
     resp = HttpResponse(buf.read(), content_type="audio/mpeg")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
