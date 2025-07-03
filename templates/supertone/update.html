@@ -240,6 +240,17 @@
   </form>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // Prevent Enter key in preview inputs/selects from submitting the form
+    ['id_voice','id_style','id_pitch_shift','id_pitch_variance','id_speed'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+          }
+        });
+      }
+    });
     const ttsUrl = "{% url 'tts_proxy' %}";
     // Handle preview buttons
     document.querySelectorAll('.regenerate').forEach(button => {
