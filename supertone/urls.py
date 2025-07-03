@@ -30,4 +30,6 @@ urlpatterns = [
         name="supertone_download_zip",
     ),
     path("voice-search/", views.voice_search, name="voice_search"),
+    path("update-silent/", views.update_silent, name="update_silent"),
+    path("download-srt/<int:pk>/", views.download_srt, name="download_srt"),
 ]

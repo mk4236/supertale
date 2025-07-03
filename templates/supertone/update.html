@@ -2,6 +2,10 @@
 {% load django_bootstrap5 %}
 
 {% block content %}
+<style>
+  /* Hide default audio until Plyr is initialized */
+  audio.plyr { visibility: hidden; }
+</style>
 <div class="container mt-4">
   <div id="message-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050; width: auto;">
     {% if messages %}
@@ -50,7 +54,7 @@
       <!-- TTS Preview Section (like create view) -->
       <div class="card mb-4">
         <div class="card-body">
-          <h6 class="mb-3">미리 듣기</h6>
+          <h6 class="mb-3">Preview</h6>
           <div class="row align-items-center mb-2">
             <div class="col d-flex flex-wrap gap-2">
               <div class="mb-0 me-2 col-auto">
@@ -73,9 +77,8 @@
               </div>
             </div>
             <div class="col-auto">
-              <div class="mb-0 me-2 col-auto">
+              <div class="mb-0 col-auto">
                 <label for="id_style" class="form-label small">스타일</label>
-                
                 <select name="style" id="id_style" class="form-select form-select-sm w-auto">
                   {% for voice in voice_list %}
                     {% if voice.voice_id == form.voice.value %}
@@ -123,32 +126,40 @@
             </ul>
           </div>
           <div class="mb-3">
-            <textarea id="preview-text" class="form-control" rows="3" placeholder="미리 듣고 싶은 텍스트를 입력하세요.">{{form.instance.text}}</textarea>
+            <textarea id="preview-text" class="form-control" rows="2" placeholder="미리 듣고 싶은 텍스트를 입력하세요.">{{form.instance.text}}</textarea>
           </div>
           <div class="mb-3 audio-container">
-            <audio id="preview-audio" controls class="w-100"></audio>
+            <audio id="preview-audio" controls class="plyr w-100"></audio>
             <audio id="voiceModalSampleAudio" style="display:none;"></audio>
             <audio id="line_audio_hidden" style="display:none;"></audio>
             <audio id="sample_audio_hidden" style="display:none;"></audio>
           </div>
-          <div class="d-flex justify-content-end">
-            <button type="button" id="preview-button" class="btn btn-sm btn-outline-secondary">
-              <i class="fas fa-play"></i> 미리듣기
-            </button>
-            <button type="button" id="apply-preview" class="btn btn-sm btn-outline-primary ms-2">
-              <i class="fas fa-redo-alt"></i> 전체에 반영 및 음성 재생성
-            </button>
+          <div class="d-flex justify-content-between">
+            <div class="d-flex">
+              <button type="button" id="download-script" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-file-alt"></i> 스크립트.srt
+              </button>
+            </div>
+            <div class="d-flex">
+              <button type="button" id="preview-button" class="btn btn-sm btn-outline-secondary ms-2">
+                <i class="fas fa-play"></i> 미리듣기
+              </button>
+              <button type="button" id="apply-preview" class="btn btn-sm btn-outline-primary ms-2">
+                <i class="fas fa-redo-alt"></i> 전체에 반영 및 음성 재생성
+              </button>
+            </div>
           </div>
         </div>
       </div>
       {% if form.instance.pk %}
         {% for line in form.instance.lines.all %}
           <div class="card mb-4" data-line-id="{{ line.id }}">
+            <div class="card-header"> 
+              {{ forloop.counter }}번 TTS
+            </div>
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">{{ forloop.counter }}번 TTS</h6>
-                <div class="d-flex">
-                  <div class="col-auto mb-0 me-2">
+                <div class="col-auto mb-0 me-2">
                     <label for="voice_id_{{ forloop.counter }}" class="form-label small">음성</label>
                     <div class="input-group input-group-sm w-auto align-items-center">
                       <img id="line_thumbnail_{{ forloop.counter }}" src="" alt="Line Thumbnail"
@@ -172,9 +183,10 @@
                       </button>
                     </div>
                   </div>
+                <div class="d-flex">
                   <div class="col-auto mb-0 me-2">
                     <label for="style_{{ forloop.counter }}" class="form-label small">스타일</label>
-                    <select name="style_{{ forloop.counter }}" data-initial="{{ line.style }}" class="form-select w-auto me-2 form-select-sm"></select>
+                    <select name="style_{{ forloop.counter }}" data-initial="{{ line.style }}" class="form-select w-auto form-select-sm"></select>
                   </div>
                   <div class="col-auto mb-0 me-2">
                     <label for="id_pitch_shift_{{ forloop.counter }}" class="form-label small">음정 조정</label>
@@ -196,7 +208,7 @@
                            value="{{ line.pitch_variance }}"
                            onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }">
                   </div>
-                  <div class="col-auto mb-0">
+                  <div class="col-auto mb-0 me-2">
                     <label for="id_speed_{{ forloop.counter }}" class="form-label small">속도</label>
                     <input type="number"
                            name="speed_{{ forloop.counter }}"
@@ -206,31 +218,51 @@
                            value="{{ line.speed }}"
                            onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }">
                   </div>
+                  <div class="col-auto mb-0">
+                    <label for="id_silent_{{ forloop.counter }}" class="form-label small">무음 길이(초)</label>
+                    <input type="number"
+                           name="silent_{{ forloop.counter }}"
+                           id="id_silent_{{ forloop.counter }}"
+                           data-line-id="{{ line.id }}"
+                           min="0" step="0.1" max="600"
+                           class="form-control w-auto form-control-sm"
+                           value="{{ line.silent }}"
+                           onblur="var v=Number(this.value); var mn=Number(this.min); var mx=Number(this.max); if(isNaN(v)){ this.value = mn; } else { this.value = Math.max(Math.min(v, mx), mn); }"
+                    >
+                  </div>
                 </div>
               </div>
               <div class="mb-3">
-                <textarea name="step_{{ forloop.counter }}" class="form-control" rows="3">{{ line.text }}</textarea>
+                <textarea name="step_{{ forloop.counter }}" class="form-control" rows="2">{{ line.text }}</textarea>
               </div>
-              <div class="mb-3 audio-container">
-                {% if line.audio_file %}
-                  <audio id="line_audio_{{ forloop.counter }}" controls class="w-100" src="{{ line.audio_file.url }}"></audio>
-                {% else %}
-                  <audio id="line_audio_{{ forloop.counter }}" controls class="w-100"></audio>
-                {% endif %}
-              </div>
-              <div class="d-flex justify-content-end">
-                <button type="button" class="btn btn-sm btn-outline-secondary regenerate me-2" data-line-id="{{ line.id }}">
-                  <i class="fas fa-sync-alt"></i> 저장 및 음성생성
-                </button>
-                {% if line.audio_file %}
-                  <a href="{{ line.audio_file.url }}" download class="btn btn-sm btn-outline-secondary download-btn">
-                    <i class="fas fa-download"></i> 다운로드
-                  </a>
-                {% else %}
-                  <a href="#" download class="btn btn-sm btn-outline-secondary download-btn" style="display:none;">
-                    <i class="fas fa-download"></i> 다운로드
-                  </a>
-                {% endif %}
+              <div class="d-flex justify-content-end align-items-center gap-2">
+                <div>
+                  {% if line.audio_file %}
+                    <audio id="line_audio_{{ forloop.counter }}" controls class="plyr me-2" src="{{ line.audio_file.url }}"></audio>
+                  {% else %}
+                    <audio id="line_audio_{{ forloop.counter }}" controls class="plyr me-2"></audio>
+                  {% endif %}
+                </div>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button type="button"
+                          class="btn btn-outline-primary regenerate"
+                          data-line-id="{{ line.id }}">
+                    <i class="fas fa-sync-alt"></i> 저장 및 음성생성
+                  </button>
+                  {% if line.audio_file %}
+                    <a href="{{ line.audio_file.url }}"
+                       download
+                       class="btn btn-outline-secondary download-btn">
+                      <i class="fas fa-download"></i> .mp3
+                    </a>
+                  {% else %}
+                    <a href="#"
+                       download
+                       class="btn btn-outline-secondary download-btn d-none">
+                      <i class="fas fa-download"></i>
+                    </a>
+                  {% endif %}
+                </div>
               </div>
             </div>
           </div>
@@ -250,6 +282,16 @@
           }
         });
       }
+    });
+    // Prevent Enter key in line-specific inputs/selects from submitting the form
+    document.querySelectorAll(
+      'select[name^="style_"], input[name^="pitch_shift_"], input[name^="pitch_variance_"], input[name^="speed_"], input[name^="silent_"]'
+    ).forEach(el => {
+      el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+        }
+      });
     });
     const ttsUrl = "{% url 'tts_proxy' %}";
     // Handle preview buttons
@@ -857,5 +899,82 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+</script>
+<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Plyr and reveal players
+    const players = Plyr.setup('audio.plyr', {
+      controls: ['play', 'progress', 'current-time', 'mute', 'volume']
+    });
+    players.forEach(player => {
+      const container = player.elements.container;
+      if (container) {
+        container.style.visibility = 'visible';
+      }
+    });
+  });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[name^="silent_"]').forEach(input => {
+    const updateSilent = async (e) => {
+      const val = e.target.value;
+      const idx = e.target.dataset.lineId;
+      try {
+        await fetch("{% url 'update_silent' %}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}",
+          },
+          body: JSON.stringify({ line_id: idx, silent: val }),
+        });
+      } catch(err) {
+        console.error("Silent update failed:", err);
+      }
+    };
+    input.addEventListener('blur', updateSilent);
+    input.addEventListener('change', updateSilent);
+  });
+});
+</script>
+<script>
+  // Generate and download SRT file based on line cards
+  function formatTimestamp(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 1000);
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms).padStart(3,'0')}`;
+  }
+
+  document.getElementById('download-script').addEventListener('click', () => {
+    let srtContent = '';
+    let cumulative = 0;
+    document.querySelectorAll('.card[data-line-id]').forEach((card, index) => {
+      const textArea = card.querySelector('textarea[name^="step_"]');
+      const text = textArea ? textArea.value.trim() : '';
+      const audioEl = card.querySelector('audio.plyr');
+      const duration = audioEl && !isNaN(audioEl.duration) ? audioEl.duration : 0;
+      const silentInput = card.querySelector('input[name^="silent_"]');
+      const silent = silentInput ? parseFloat(silentInput.value) : 0;
+      const start = cumulative;
+      const end = start + duration;
+      srtContent += `${index}\n`;
+      srtContent += `${formatTimestamp(start)} --> ${formatTimestamp(end)}\n`;
+      srtContent += `${text}\n\n`;
+      cumulative = end + silent;
+    });
+    const blob = new Blob([srtContent], { type: 'application/x-subrip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `supertone_{{ form.instance.pk }}.srt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
 </script>
 {% endblock %}

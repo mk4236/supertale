@@ -134,6 +134,10 @@ class SuperToneLine(models.Model):
     speed = models.FloatField(
         default=1, help_text="발화 속도를 조절합니다. 0.5~2 사이의 값을 가집니다."
     )
+    silent = models.FloatField(
+        default=0.3,
+        help_text="초 단위 무음 구간 길이입니다. (소수점 자릿수 제한 없음, 기본값 0.3초)",
+    )
 
     class Meta:
         ordering = ["order"]

@@ -1,42 +1,39 @@
 import json
 import logging
-import re
-
 import os
+import re
 import zipfile
+import io
 from io import BytesIO
 
 import httpx
 from django.conf import settings
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
-from django.http import (
-    HttpResponse,
-    JsonResponse,
-    StreamingHttpResponse,
-    HttpResponseNotAllowed,
-)
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
-from django.urls import reverse_lazy, reverse
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
-from django.core.paginator import Paginator
-
-from django.core.files.base import ContentFile
-from django.utils import timezone
+from django.utils.text import slugify
+from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 
-from supertone.forms import SuperToneCreateForm, SuperToneUpdateForm
-
-from supertone.choices import LanguageType, ModelType, UseCase, VoiceStyleType
-from .models import SuperTone, Voice
-from .models import SuperToneLine
+from io import BytesIO
 
 from django.shortcuts import get_object_or_404
-from io import BytesIO
 from pydub import AudioSegment
+
+from supertone.choices import LanguageType, ModelType, UseCase, VoiceStyleType
+from supertone.forms import SuperToneCreateForm, SuperToneUpdateForm
+
+from .models import SuperTone, SuperToneLine, Voice
 
 AudioSegment.converter = "/usr/bin/ffmpeg"
 
@@ -46,11 +43,14 @@ def merge_audio(request, pk):
     주어진 SuperTone(pk)에 속한 모든 라인 오디오를 order 순서대로 합쳐서
     single MP3 파일로 반환합니다.
     """
+    # 0) SuperTone 객체 가져오기
+    supertone = get_object_or_404(SuperTone, pk=pk)
     # 1) 라인들을 순서대로 불러오기
     lines = SuperToneLine.objects.filter(supertone_id=pk).order_by("order")
 
     # 2) 첫 번째 오디오로 초기화
     merged = None
+    prev_line = None
     for line in lines:
         if not line.audio_file:
             continue  # 오디오 없는 라인은 건너뛰기
@@ -60,7 +60,25 @@ def merge_audio(request, pk):
         if merged is None:
             merged = segment
         else:
-            merged += segment  # 이어붙이기
+            # Use the previous line's silent value for the prior segment gap
+            if prev_line is not None:
+                silence_duration_ms = int(prev_line.silent * 1000)
+            else:
+                silence_duration_ms = 0
+            logger.debug(
+                f"Line id={prev_line.id if prev_line else 'N/A'}: inserting {silence_duration_ms}ms of silence"
+            )
+            # Create silent segment matching source audio properties
+            silence_segment = (
+                AudioSegment.silent(
+                    duration=silence_duration_ms, frame_rate=segment.frame_rate
+                )
+                .set_channels(segment.channels)
+                .set_sample_width(segment.sample_width)
+            )
+            merged += silence_segment + segment
+        # Track this line as previous for next iteration
+        prev_line = line
 
     if merged is None:
         return HttpResponse("합칠 오디오가 없습니다.", status=404)
@@ -71,7 +89,9 @@ def merge_audio(request, pk):
     buf.seek(0)
 
     # 4) 응답 생성
-    filename = f"supertone_{pk}_merged.mp3"
+    # 파일명을 "<제목>_<pk>_merged.mp3" 형태로 설정
+    title_slug = slugify(supertone.title)
+    filename = f"{title_slug}_{pk}_merged.mp3"
     resp = HttpResponse(buf.read(), content_type="audio/mpeg")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
     return resp
@@ -444,3 +464,69 @@ def voice_search(request):
             "user_cases": UseCase.choices,
         },
     )
+
+
+# --- AJAX endpoint to update SuperToneLine.silent ---
+
+
+@csrf_exempt
+@require_POST
+def update_silent(request):
+    """
+    AJAX endpoint to update SuperToneLine.silent when the silent input loses focus.
+    """
+    try:
+        data = json.loads(request.body)
+        line_id = data.get("line_id")
+        silent_val = data.get("silent")
+
+        print(line_id)
+        print(silent_val)
+        line = SuperToneLine.objects.get(pk=line_id)
+        line.silent = float(silent_val)
+        line.save(update_fields=["silent"])
+        return JsonResponse({"status": "ok"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+
+# --- SRT download view ---
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_GET
+
+
+@login_required
+@require_GET
+def download_srt(request, pk):
+    """
+    Generate and return an SRT file for SuperTone(pk) including silent gaps.
+    """
+    lines = SuperToneLine.objects.filter(supertone_id=pk).order_by("order")
+    cumulative = 0.0
+    srt_lines = []
+
+    def format_timestamp(seconds: float) -> str:
+        h = int(seconds // 3600)
+        m = int((seconds % 3600) // 60)
+        s = int(seconds % 60)
+        ms = int((seconds - int(seconds)) * 1000)
+        return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+    index = 0
+    for line in lines:
+        if not line.audio_file:
+            continue
+        segment = AudioSegment.from_file(line.audio_file.path)
+        duration = segment.duration_seconds
+        start = cumulative
+        end = start + duration
+        srt_lines.append(f"{index}\n")
+        srt_lines.append(f"{format_timestamp(start)} --> {format_timestamp(end)}\n")
+        srt_lines.append(f"{line.text}\n\n")
+        cumulative = end + float(line.silent)
+        index += 1
+
+    content = "".join(srt_lines)
+    response = HttpResponse(content, content_type="application/x-subrip")
+    response["Content-Disposition"] = f'attachment; filename="supertone_{pk}.srt"'
+    return response
