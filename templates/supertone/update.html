@@ -31,7 +31,11 @@
 
       <div>
         <a href="{% url 'supertone_list' %}" class="btn btn-secondary btn-sm">목록으로</a>
-        <a href="{% url 'supertone_download_zip' form.instance.pk %}" class="btn btn-success ms-2 btn-sm">
+
+        <button type="button" id="download-script" class="btn btn-sm btn-outline-secondary">
+          <i class="fas fa-file-alt"></i> 스크립트 다운로드.srt
+        </button>
+        <a href="{% url 'supertone_download_zip' form.instance.pk %}" class="btn btn-success  btn-sm">
           <i class="fas fa-file-archive"></i> 오디오압축파일 다운로드.zip
         </a>
         <a href="{% url 'supertone_merge_audio' form.instance.pk %}"
@@ -135,19 +139,12 @@
             <audio id="sample_audio_hidden" style="display:none;"></audio>
           </div>
           <div class="d-flex justify-content-between">
-            <div class="d-flex">
-              <button type="button" id="download-script" class="btn btn-sm btn-outline-secondary">
-                <i class="fas fa-file-alt"></i> 스크립트.srt
-              </button>
-            </div>
-            <div class="d-flex">
-              <button type="button" id="preview-button" class="btn btn-sm btn-outline-secondary ms-2">
-                <i class="fas fa-play"></i> 미리듣기
-              </button>
-              <button type="button" id="apply-preview" class="btn btn-sm btn-outline-primary ms-2">
-                <i class="fas fa-redo-alt"></i> 전체에 반영 및 음성 재생성
-              </button>
-            </div>
+            <button type="button" id="preview-button" class="btn btn-sm btn-outline-secondary ms-2">
+              <i class="fas fa-play"></i> 미리듣기
+            </button>
+            <button type="button" id="apply-preview" class="btn btn-sm btn-outline-primary ms-2">
+              <i class="fas fa-redo-alt"></i> 전체에 반영 및 음성 재생성
+            </button>
           </div>
         </div>
       </div>
